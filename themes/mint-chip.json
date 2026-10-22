@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "colors": {
+    "accent": "#2b7f62",
+    "background": "#1a1411",
+    "text": "#f4fff9",
+    "button_idle": "#4a3a30",
+    "button_active": "#3e7a64",
+    "button_pressed": "#47836c",
+    "button_border": "#9ff5d0",
+    "control_active": "#9ff5d0",
+    "knob": "#9ff5d0",
+    "slot15": "#f4fff9",
+    "slot30": "#ffffff",
+    "slot13": "#ffffff",
+    "slot23": "#9a5a22",
+    "slot06": "#c8423a",
+    "slot11": "#2a7f48",
+    "slot20": "#ffff00",
+    "slot08": "#120d0b",
+    "slot07": "#9ff5d0",
+    "slot24": "#ffb38a",
+    "slot16": "#33281f",
+    "slot25": "#2b211a",
+    "compressor": "#9ff5d0"
+  }
+}

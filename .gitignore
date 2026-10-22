@@ -1,0 +1,17 @@
+# Official firmware is proprietary: never commit it or patched images.
+BLUEBOX.BIN
+modded/
+restored/
+
+# Build outputs (recreate with build.sh)
+build/
+__pycache__/
+*.pyc
+
+# Test logs and renders
+tests/*.log
+tests/*.png
+tests/*.json
+node_modules/
+
+.DS_Store

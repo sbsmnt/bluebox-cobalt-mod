@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0-tape.exp.2",
+  "m7_payloads": {
+    "cm7.bin": "04d2cd048283d02db2bb90d6f29c6b729a38fa8e3032dc6a5e5dd6dcef686579",
+    "gr7.bin": "1d4c6397ea86dfbc614d795cee739493f106188cce1dd7f87c1dcce6aab3908a",
+    "delay7.bin": "ab13826b7b2ffa4ded0b2be4b7c901766490b8c84b6f6fbe5ad32a12fa213869",
+    "gate7.bin": "4ccf086a57cbaf4a1aecb3d9187f4bbaf7e0835188692c85ffb2329e876e8677"
+  }
+}

@@ -1,0 +1,6 @@
+#ifndef BLUEBOX_MASTER_TAPE_PARAMS_H
+#define BLUEBOX_MASTER_TAPE_PARAMS_H
+#define MT_MODE 0x1b6u
+#define MT_TONE 0x1b7u
+#define MT_OUTPUT 0x1b8u
+#endif

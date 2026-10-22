@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0-tape.exp.1",
+  "patched_sha256": "891641486c3bf6556f7d4340c89e228e791c6fcfa92726cacdd2383d45a1d080",
+  "gr7_sha256": "c0fddfb4b052743766c87452be5a94e0cfafd82b5617d45a095e3bb66a6b8bcc",
+  "process_pointer_address": 134652492,
+  "process_address": 134873912,
+  "preserved_payloads": {
+    "cm7.bin": "04d2cd048283d02db2bb90d6f29c6b729a38fa8e3032dc6a5e5dd6dcef686579",
+    "delay7.bin": "ab13826b7b2ffa4ded0b2be4b7c901766490b8c84b6f6fbe5ad32a12fa213869",
+    "gate7.bin": "4ccf086a57cbaf4a1aecb3d9187f4bbaf7e0835188692c85ffb2329e876e8677"
+  },
+  "cm4_sha256": "5537e91d5e35255f1bfabc132cb5e611c7f816e12f221df9a679d450436c3936"
+}

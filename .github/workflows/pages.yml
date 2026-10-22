@@ -1,0 +1,90 @@
+# Checks that need no firmware, then publishes the patcher page.
+# The full emulator suite needs the proprietary 1.5.2 image, so it runs
+# locally: python3 tests/run_checks.py /path/to/BLUEBOX.BIN
+name: Check and deploy patcher
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: No firmware images in the repository
+        run: |
+          if git ls-files | grep -iE '(^|/)BLUEBOX\.BIN$|(^|/)(modded|restored)/'; then
+            echo "::error::Firmware images must not be committed"; exit 1
+          fi
+
+      - name: Python sources compile
+        run: python -m py_compile patch_bluebox.py tools/*.py tests/*.py
+
+      - name: Command-line patcher starts
+        run: python patch_bluebox.py --help
+
+      - name: Pages copy matches the patcher page
+        run: cmp docs/index.html patch_bluebox.html
+
+      - name: Theme presets load in the patcher
+        run: |
+          python - <<'EOF'
+          import importlib.util, json, pathlib
+          spec = importlib.util.spec_from_file_location('p', 'patch_bluebox.py')
+          p = importlib.util.module_from_spec(spec); spec.loader.exec_module(p)
+          presets = p.MANIFEST['theme']['presets']
+          for f in sorted(pathlib.Path('themes').glob('*.json')):
+              data = json.loads(f.read_text())
+              assert set(data) == {'schema', 'colors'} and data['schema'] == 1, f
+              assert p.theme_values(data['colors']) in presets.values(), f
+          print(len(presets), 'presets OK')
+          EOF
+
+      - name: Patcher page preview tests
+        run: node tests/test_theme_preview.cjs
+
+      - name: DSP host tests (ASan/UBSan)
+        run: |
+          for t in granular delay_types gate shoegaze tape; do
+            cc -std=c11 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined \
+              "tests/${t}_host.c" -lm -o "/tmp/${t}_host"
+            ASAN_OPTIONS=detect_leaks=0 "/tmp/${t}_host" | tail -n 1
+          done
+
+  deploy:
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
