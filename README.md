@@ -8,14 +8,17 @@ meters, an overdub recording fix and custom colour themes. The patcher runs
 locally: it takes your copy of the official 1.5.2 firmware and writes a new
 `BLUEBOX.BIN`. No firmware is distributed here.
 
+**Open the patcher: [sbsmnt.github.io/bluebox-cobalt-mod](https://sbsmnt.github.io/bluebox-cobalt-mod/)**
+
 > Cobalt is not made, endorsed or supported by 1010music. Keep a copy of your
 > working firmware and back up your projects before installing.
 
 ## Install
 
-1. Open the patcher: the GitHub Pages site, or `patch_bluebox.html` from this
-   repository in any modern browser. Nothing is uploaded; patching happens in
-   the page.
+1. Open the patcher at
+   [sbsmnt.github.io/bluebox-cobalt-mod](https://sbsmnt.github.io/bluebox-cobalt-mod/),
+   or open `patch_bluebox.html` from this repository in any modern browser.
+   Nothing is uploaded; patching happens in the page.
 2. Drop the **original official desktop 1.5.2 `BLUEBOX.BIN`** on the drop
    zone (or click to browse). Other versions and already-patched files are
    refused.
@@ -248,7 +251,8 @@ DSP host tests. The emulator suite needs the original firmware, so run
 `tests/run_checks.py` locally before pushing.
 
 On `main`, the workflow then publishes `docs/` (the self-contained patcher
-page) to GitHub Pages. Enable it once under **Settings → Pages → Build and
+page) to GitHub Pages at [https://sbsmnt.github.io/bluebox-cobalt-mod/](https://sbsmnt.github.io/bluebox-cobalt-mod/).
+Enable it once under **Settings → Pages → Build and
 deployment → Source: GitHub Actions**.
 
 ## Layout
