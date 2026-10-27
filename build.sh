@@ -17,6 +17,15 @@ for core in 7 4; do
   "$OBJCOPY" -O binary -j .cave "build/cm$core.elf" "build/cm$core.bin"
   "$NM" "build/cm$core.elf" > "build/cm$core.symbols"
 done
+# PC map experiment: separate M4 payload so Cobalt's cm4 layout is unchanged.
+"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os \
+  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
+  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=sat_defs=0x$(awk '$3=="sat_defs"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=cpu_present=0x$(awk '$3=="cpu_present"{print $1}' build/cm4.symbols) \
+  -T src/pcm4.ld -o build/pcm4.elf src/pc_m4.c
+"$OBJCOPY" -O binary -j .cave build/pcm4.elf build/pcm4.bin
+"$NM" build/pcm4.elf > build/pcm4.symbols
 # alpha.6 overdub fix: in-place PCM24 loops for the stock 0x081-page bodies.
 "$OBJCOPY" -O binary -j .pcmhot build/cm4.elf build/pcmhot.bin
 "$OBJCOPY" -O binary -j .pcmdm build/cm4.elf build/pcmdm.bin

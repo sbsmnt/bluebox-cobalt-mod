@@ -1,17 +1,37 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.0.0 - for bluebox desktop firmware 1.5.2**
+**v1.1.0-alpha.3 (alpha) - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
 modes, a new reverb, a per-track noise gate, master saturation, compressor
-meters, an overdub recording fix and custom colour themes. The patcher runs
-locally: it takes your copy of the official 1.5.2 firmware and writes a new
-`BLUEBOX.BIN`. No firmware is distributed here.
+meters, an overdub recording fix, mixer scenes with MIDI recall and custom
+colour themes. The patcher runs locally: it takes your copy of the official
+1.5.2 firmware and writes a new `BLUEBOX.BIN`. No firmware is distributed
+here.
 
 **Open the patcher: [sbsmnt.github.io/bluebox-cobalt-mod](https://sbsmnt.github.io/bluebox-cobalt-mod/)**
 
 > Cobalt is not made, endorsed or supported by 1010music. Keep a copy of your
 > working firmware and back up your projects before installing.
+
+## New in v1.1 (alpha)
+
+- **Scenes:** up to 16 snapshots per project of the mixer, master and aux
+  buses, FX1/FX2 (including the effect type) and BPM. Recall is instant,
+  with no project load, so playback and recording carry on.
+- **Scene page:** select a project in PROJ and press A to load or save a
+  scene and set the project's Bank #.
+- **Quick save:** hold A for 3 s on MAIN to save the next empty scene.
+- **MIDI recall:** Program Change recalls a scene; Bank Select loads the
+  project with that Bank #. Channel and Bank CC in TOOLS > MIDI Settings.
+- **PROJ list:** the loaded project is marked with `* `, and long names
+  scroll.
+- **MIXER sends with OUT3:** buttons read `O 2`, `O 3` and `NG` (gate) so
+  all seven fit.
+
+Details in [Scenes (alpha)](#scenes-alpha) and the [CHANGELOG](CHANGELOG.md).
+The alpha's patcher is `patch_bluebox.html` on this branch; the hosted page
+still serves v1.0.0.
 
 ## Install
 
@@ -154,7 +174,8 @@ front.
 
 ### Noise gate
 
-A gate on every track. Set it on TRACK (GATE knob) or in MIXER → Gate. The
+A gate on every track. Set it on TRACK (GATE knob) or in MIXER → Gate (`NG`
+when OUT3 is present). The
 threshold runs from −96 dB to −12 dB; the lowest setting is Off. It takes fine
 steps when turned slowly and speeds up when spun. MIXER → Gate meters show
 the level the gate listens to on the Gate fader's scale, so the meter crosses
@@ -205,6 +226,31 @@ fill colour is set in the theme editor (Compressor GR meter).
 Stock 1.5.2 can stop with an error while overdubbing long takes because the
 storage task falls behind. Cobalt converts recorded and played-back audio in
 word-sized bursts instead of byte by byte. The audio is bit-identical.
+
+### Scenes (alpha)
+
+A scene is a snapshot of the mixer (track level, pregain, pan, sends, mute,
+solo, compressor, EQ and gate), the master and aux buses, every FX1/FX2
+parameter including the effect type, and the BPM. Each project holds up to
+16, saved in the project file. Recalling a scene changes only the values
+that differ, without loading anything, so playback and recording carry on.
+
+- **Scene page:** select a project in PROJ and press A. Turn to pick a row
+  and a number, then press Select:
+  - **Load Scene:** recall that scene.
+  - **Save Scene:** save the current state to that scene.
+  - **Bank #:** give the project a number (None or 1–128) for MIDI Bank
+    Select. A number another project has is refused ("BANK n IN USE").
+  Press A to leave. PROJ Save also applies the Bank # chosen there.
+- **Quick save:** hold A for 3 s on MAIN. A band at the top shows progress,
+  then saves the next empty scene. A new project starts at scene 1.
+- **MIDI:** Program Change recalls a scene: program 0 (PC 1 on gear that
+  counts from 1) is scene 1. Bank Select loads the project with that Bank #
+  (value 0 = Bank 1); a Program Change after it waits for the load. TOOLS > **MIDI Settings** (tap it, or press B with it selected;
+  B goes back) sets **Bank CC** (MSB - CC 0 or LSB - CC 32) and **PC Ch** (All, None or
+  1–16).
+- **PROJ list:** the loaded project is marked with `* `, and a long selected
+  name scrolls.
 
 ### Themes
 

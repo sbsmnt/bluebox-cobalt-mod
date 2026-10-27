@@ -6,8 +6,10 @@ from firmware_harness import *
 import firmware_harness as H
 
 def definitions(image):
- u=machine(image)
- stub(u,0x8103128,lambda u:u.reg_write(UC_ARM_REG_R0,0xc0010000))
+ u=machine(image);heap=[0xc0010000]
+ def allocate(u):  # bump allocator: the definitions table is the first block
+  a=heap[0];heap[0]=(a+u.reg_read(UC_ARM_REG_R0)+15)&~15;u.reg_write(UC_ARM_REG_R0,a)
+ stub(u,0x8103128,allocate)
  call(u,0x8134cb8,0)
  return u,bytes(u.mem_read(0xc0010000,0x3934))
 a,old=definitions(stock);b,new=definitions(patched)

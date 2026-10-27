@@ -29,7 +29,9 @@ for quad in [0,1]:
   check(rect[0]>=1 and rect[0]+rect[2]<=320 and rect[2]>=44 and rect[3]==39,'sends button fits native screen '+str((quad,i)))
  gate=P+(0xbfe4 if quad else 0xc3a4)
  check(bytes(u.mem_read(gate+0x30,1))==b'\0','sends Gate button is visible for native hit testing '+str(quad))
- check(cs(gate+0x65)==b'Gate','Gate label belongs to sends page '+str(quad))
+ check(cs(gate+0x65)==(b'NG' if quad else b'Gate'),'Gate label belongs to sends page (NG with seven buttons) '+str(quad))
+ if quad:check([cs(P+0xc444+i*0xa0+0x65) for i in range(7) if i!=6]==[b'Pan',b'FX1',b'FX2',b'CUE',b'O 2',b'O 3'],'OUT3 present: seven buttons, OUT2/OUT3 shortened to O 2/O 3')
+ else:check(cs(P+0xc304+0x65)==b'OUT2','six buttons: OUT2 keeps its native label')
  # Actual native child release dispatch and patched range/selection calls.
  e=0x24062000;u.mem_write(e,struct.pack('<6I',2,0,0,0x163 if quad else 0x162,0,0))
  call(u,0x812e468,P,e)

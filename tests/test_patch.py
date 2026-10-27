@@ -38,7 +38,15 @@ def bl_target(image,a):
  value=(s<<24)|(i1<<23)|(i2<<22)|((h1&1023)<<12)|((h2&2047)<<1)
  return a+4+(value-(1<<25) if s else value)
 check(bl_target(patched,0x0804c50e)==s7['cpu_prof_end'],'desktop audio call redirects to compiled M7 hook')
-check(bl_target(patched,0x08137496)==s4['cpu_present'],'desktop display call redirects to compiled M4 hook')
+# Scenes: the display call goes to pc_present (on-screen messages), which ends
+# by calling Cobalt's cpu_present.
+pcm4=M['symbols']['pcm4']
+check(bl_target(patched,0x08137496)==pcm4['pc_present'],'desktop display call redirects to the scenes overlay hook')
+from capstone import *
+md=Cs(CS_ARCH_ARM,CS_MODE_THUMB|CS_MODE_MCLASS)
+pp=pcm4['pc_present']&~1
+calls=[int(i.op_str[1:],16) for i in md.disasm(bytes(patched[pp-0x08040000:pp-0x08040000+0x200]),pp) if i.mnemonic in ('bl','b.w') and i.op_str.startswith('#')]
+check(s4['cpu_present']&~1 in calls,'which chains to Cobalt\'s compiled M4 display hook (cpu_present)')
 check(len(stock)==len(patched),'firmware length unchanged')
 check(stock[0xa0000:0xc0000]==patched[0xa0000:0xc0000],'storage application unchanged')
 allowed=set()

@@ -399,5 +399,5 @@ float dly_knob_fraction(uint8_t *w) {
  * middle at +d4, official version at +34. Reuse the empty field. */
 void dly_tools_version(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813820du)(label,stock);
-    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.0");
+    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cb 1.1a3");
 }

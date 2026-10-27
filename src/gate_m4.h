@@ -32,6 +32,14 @@ void gate_mix_setup(uint8_t *p,unsigned mode) {
     for(unsigned i=0;i<6;i++)gate_button_rect(p,p+0xc084+i*0xa0,i,6);
     for(unsigned i=0;i<6;i++)gate_button_rect(p,p+0xc444+i*0xa0,i,7);
     gate_button_rect(p,extra,6,7);
+    /* Seven buttons (OUT3 present): "OUT2"/"OUT3" overflow their 45 px, so
+     * they become "O 2"/"O 3" (Gate is "NG", set in gate_mix_construct) (label text at button+0x34+0x31). */
+    for(unsigned i=4;i<6;i++){
+        uint8_t *b=p+0xc444+i*0xa0;
+        const char *t=(const char *)b+0x65;
+        if(t[0]=='O' && t[1]=='U' && t[2]=='T' && (t[3]=='2' || t[3]=='3') && !t[4])
+            ((void (*)(void *,const char *))0x0813820du)(b,t[3]=='2' ? "O 2" : "O 3");
+    }
 }
 void gate_mix_select(uint8_t *p,unsigned index) {
     unsigned mode=*(unsigned *)(p+0xd26c),quad=gate_quad();
@@ -156,7 +164,8 @@ void *gate_mix_construct(uint8_t *p) {
     (*(void (***)(void *,unsigned))extra)[0x24/4](extra,0x163);
     *(uint16_t *)(p+0xcef4+0x36)=7;
     ((void (*)(void *,void *))0x08140c9du)(p+0xcef4,extra);
-    ((void (*)(void *,const char *))0x0813820du)(extra,"Gate");
+    /* Seventh button (OUT3 present, about 45 px): "Gate" does not fit. */
+    ((void (*)(void *,const char *))0x0813820du)(extra,"NG");
     return result;
 }
 /* Reuse the Track page's eighth native knob (OUT3), beside OUT2. OUT3

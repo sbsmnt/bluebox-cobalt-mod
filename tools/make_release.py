@@ -26,7 +26,6 @@ for core,address in [(7,0x080b0000),(4,0x080b8000)]:
     if len(code)>0x8000:raise ValueError('code cave too large')
     add(f'M{core} additional code',address,bytes(len(code)),code)
 add('audio profiler exit call',0x0804c50e,branch(0x0804c50e,0x0804bbf8),branch(0x0804c50e,symbols(7)['cpu_prof_end']))
-add('screen flip call',0x08137496,branch(0x08137496,0x0810134c),branch(0x08137496,symbols(4)['cpu_present']))
 add('clock label width 140 to 128 pixels',0x08139790,bytes.fromhex('8c23'),bytes.fromhex('8023'))
 gr_code=(ROOT/'build'/'gr7.bin').read_bytes()
 if len(gr_code)>0x8000:raise ValueError('compressor code cave too large')
@@ -40,7 +39,8 @@ add('settings redraw check call',0x0813408e,branch(0x0813408e,0x08139586),branch
 for slot in (4,32):
     add(f'purple UI palette slot {slot}',0x0814d230+4*slot,
         struct.pack('<I',0xffff6af3),struct.pack('<I',0xff9455fa))
-add('parameter definitions final call',0x08135fec,branch(0x08135fec,0x08134c8c),branch(0x08135fec,symbols(4)['sat_defs']))
+PC={f[2]:int(f[0],16) for line in (ROOT/'build'/'pcm4.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('parameter definitions final call',0x08135fec,branch(0x08135fec,0x08134c8c),branch(0x08135fec,PC['pc_defs_hook']))
 add('master defaults final add',0x08120848,branch(0x08120848,0x0812028e),branch(0x08120848,symbols(4)['sat_default']))
 add('master settings saturation row',0x0814aea2,bytes(8),struct.pack('<4H',0x43,0x1b6,0x1b7,0x1b8))
 # Extended delay: independently mapped desktop 1.5.2 locations.
@@ -143,8 +143,55 @@ for name,at,size,section,symbol,digest in (
  if S4[symbol]!=at or not hot or len(hot)>size or len(hot)&1:raise ValueError('Burst loop placement/size mismatch '+symbol)
  if (at>>20)!=0x081 or ((at+size-1)>>20)!=0x081:raise ValueError('Burst loop outside ART page')
  add(name,at,old,hot+b'\x00\xbf'*((size-len(hot))//2))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.0.0',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+# Scenes experiment (bluebox-scenes, ../SCENES.md), on the PC-map machinery
+# (../../bluebox-pc-map/INVESTIGATION.md): Program Change recalls a scene,
+# Bank Select (CC 0) loads the project with that Bank # number.
+if len((ROOT/'build'/'cm4.bin').read_bytes())>0x4000:raise ValueError('Cobalt M4 code reaches the PC map payload')
+pc_code=(ROOT/'build'/'pcm4.bin').read_bytes()
+if len(pc_code)>0x4000:raise ValueError('PC map code cave too large')
+add('M4 PC map code',0x080bc000,bytes(len(pc_code)),pc_code)
+def bw(at,target):
+ code=bytearray(branch(at,target));code[3]&=0xbf;return bytes(code)
+add('PC map MIDI program change capture',0x0810341a,bytes.fromhex('c028cdd1b2e7'),bw(0x0810341a,PC['pc_midi_isr'])+bytes.fromhex('00bf'))
+add('PC map main-loop dispatch',0x081269d8,branch(0x081269d8,0x08100730),branch(0x081269d8,PC['pc_main']))
+add('PC map settings defaults',0x08120aae,branch(0x08120aae,0x0812028e),branch(0x08120aae,PC['pc_settings_defaults']))
+add('PC map settings capacity 68 to 144',0x08120a56,bytes.fromhex('4421'),bytes.fromhex('9021'))
+for at,old,new in ((0x08134cce,'43f63410','44f2f870'),(0x08134ce0,'43f63412','44f2f872')):  # 0x292 records (Bank # slots + scene/MIDI tags)
+ add('PC map name table size '+hex(at),at,bytes.fromhex(old),bytes.fromhex(new))
+add('PC map name table bound 0x08134c06',0x08134c06,bytes.fromhex('40f20a23'),bytes.fromhex('40f29123'))
+for at in (0x0813600c,0x0813603a,0x0813606c,0x0813609a,0x081360ca,0x081360fa,0x0813613c):
+ add('PC map name table bound '+hex(at),at,bytes.fromhex('40f20a22'),bytes.fromhex('40f29122'))
+add('PC map name lookup end',0x08136180,bytes.fromhex('04f564553435'),bytes.fromhex('04f58e45f835'))  # +0x47f8
+add('PC map rename follows name',0x0813e822,branch(0x0813e822,0x08122468),branch(0x0813e822,PC['pc_rename']))
+add('PC map delete clears slot',0x0813e5c0,branch(0x0813e5c0,0x08122f50),branch(0x0813e5c0,PC['pc_delete']))
+add('PC map Load page after PC',0x08125e2a,branch(0x08125e2a,0x08122508),branch(0x08125e2a,PC['pc_after_load']))
+add('PC map Tools hides PC slots',0x08121e82,branch(0x08121e82,0x08138546),branch(0x08121e82,PC['pc_tools_append']))
+add('PC map MIDI realtime timestamp',0x081033e0,bytes.fromhex('0023cdf81130'),bw(0x081033e0,PC['pc_midi_realtime'])+bytes.fromhex('00bf'))
+add('Scenes Bank Select capture',0x08103378,bytes.fromhex('b02804d0'),bw(0x08103378,PC['pc_midi_cc']))
+add('Scenes project writer',0x0812109e,branch(0x0812109e,0x08106c92),branch(0x0812109e,PC['sc_write_hook']))
+def beqw(at,target):
+ off=(target&~1)-(at+4)
+ if off%2 or not -(1<<20)<=off<(1<<20):raise ValueError('conditional branch range')
+ s=(off>>20)&1;j2=(off>>19)&1;j1=(off>>18)&1
+ return struct.pack('<HH',0xf000|(s<<10)|(0<<6)|((off>>12)&63),0x8000|(j1<<13)|(j2<<11)|((off>>1)&2047))
+if beqw(0x0813e16e,0x0813e390)!=bytes.fromhex('00f00f81'):raise ValueError('beq.w encoder')
+add('Scenes A button (scene page open / leave)',0x08123902,branch(0x08123902,0x08123818),branch(0x08123902,PC['pc_button_a']))
+add('B on Tools (MIDI row) opens the MIDI page, B there goes back',0x081239e0,branch(0x081239e0,0x08123818),branch(0x081239e0,PC['pc_button_b']))
+add('PROJ list marks the loaded project',0x0813dfba,branch(0x0813dfba,0x0810204e),branch(0x0813dfba,PC['pc_list_row']))
+add('New project clears the scenes',0x0813e8a2,branch(0x0813e8a2,0x08122e3c),branch(0x0813e8a2,PC['pc_new_project']))
+add('First project (none on the card) clears the scenes',0x08125cfc,branch(0x08125cfc,0x08122e3c),branch(0x08125cfc,PC['pc_new_project']))
+add('Scene page Select button',0x0814ca40,struct.pack('<I',0x0813cfb9),struct.pack('<I',PC['pc_edit_event']|1))
+add('PROJ Save assigns the chosen Bank #',0x0813e4a8,branch(0x0813e4a8,0x081224d4),branch(0x0813e4a8,PC['pc_project_save']))
+add('Scenes on-screen feedback before Cobalt flip',0x08137496,branch(0x08137496,0x0810134c),branch(0x08137496,PC['pc_present']))
+add('Scenes page cell on page 0x19',0x081227f8,branch(0x081227f8,0x0813c384),branch(0x081227f8,PC['pc_projset_post']))
+add('Scenes edit page rows',0x0813d20a,branch(0x0813d20a,0x08121cf4),branch(0x0813d20a,PC['pc_page_rows']))
+add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x08125e04,PC['pc_knob']))
+add('Tools MIDI row has no value',0x0814ba3c,struct.pack('<I',0x08131211),struct.pack('<I',PC['pc_tools_event']|1))
+add('Row list tap on the MIDI row opens the MIDI page',0x0814cac4,struct.pack('<I',0x0813d89d),struct.pack('<I',PC['pc_list_event']|1))
+add('Scenes project reader',0x08121416,branch(0x08121416,0x081079c0),branch(0x08121416,PC['sc_read']))
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.1.0-alpha.3',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
+manifest['symbols']['pcm4']=PC
 fields=[
  dict(key='accent',label='Selection accent',slots=[4,32],default='#9455fa'),
  dict(key='background',label='Base background',slots=[2],default='#141414'),
@@ -267,5 +314,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt v1.0.0 patcher. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt v1.1.0-alpha.3 patcher. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code')))
