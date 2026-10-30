@@ -1,6 +1,6 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.1.0-alpha.3 (alpha) - for bluebox desktop firmware 1.5.2**
+**v1.1.0-alpha.4 (alpha) - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
 modes, a new reverb, a per-track noise gate, master saturation, compressor
@@ -24,12 +24,20 @@ here.
 - **Quick save:** hold A for 2 s on MAIN to save the next empty scene.
 - **MIDI recall:** Program Change recalls a scene; Bank Select loads the
   project with that Bank #. Channel and Bank CC in TOOLS > MIDI Settings.
+- **Map CC Sync:** the bluebox sends the values of its mapped CCs to your
+  controller on plug-in, project load and scene recall, so LED rings and
+  motor faders show the bluebox values.
+- **MIDI Out thru:** notes and CC from USB (or USB and MIDI in) are passed to
+  the MIDI out.
+- **Clock Src:** with clock on more than one input, one of them is followed
+  (MIDI In first, or USB first).
 - **PROJ list:** the loaded project is marked with `* `, and long names
   scroll.
 - **MIXER sends with OUT3:** buttons read `O 2`, `O 3` and `NG` (gate) so
   all seven fit.
 
-Details in [Scenes (alpha)](#scenes-alpha) and the [CHANGELOG](CHANGELOG.md).
+Details in [Scenes (alpha)](#scenes-alpha), [MIDI (alpha)](#midi-alpha) and the
+[CHANGELOG](CHANGELOG.md).
 The alpha's patcher is `patch_bluebox.html` on this branch; the hosted page
 still serves v1.0.0.
 
@@ -251,6 +259,34 @@ that differ, without loading anything, so playback and recording carry on.
   1–16).
 - **PROJ list:** the loaded project is marked with `* `, and a long selected
   name scrolls.
+
+### MIDI (alpha)
+
+Also in TOOLS > **MIDI Settings**:
+
+- **MIDI Out:** what the MIDI out passes on, besides the bluebox's own MIDI
+  output. `Default` passes nothing else (stock). `USB Thru` passes the
+  messages (notes, CC, …) coming from USB (computer on USB-B, controller on
+  USB-A). `All Thru` also passes MIDI in. Channels are kept. Clock and transport are never
+  passed on, so a clocked setup never sees a second clock; use Clock Out.
+- **Map CC Sync:** where the values of the mapped CCs are sent, so a
+  controller with LED rings or motor faders (OXI E16, MIDI Fighter Twister,
+  Launch Control XL 3, Roto-Control, Faderfox EC4, …) shows them:
+  - `Off`: never.
+  - `USB` (default): to the controller on USB-A when it is plugged in, after
+    a project load and after a scene recall.
+  - `USB+MIDI Out`: as USB, plus the MIDI out after a project load or scene
+    recall.
+  - `MIDI Out`: the MIDI out only, after a project load or scene recall.
+  The controller must listen on the channel and CC it sends (the usual
+  default). If the values can't get out, a band says `MAP CC SYNC: USB OUT
+  STUCK` or `MAP CC SYNC: MIDI OUT STUCK`.
+- **Clock Src:** which input is followed when more than one sends clock.
+  `MIDI In` (default): MIDI in, then the computer (USB-B), then the USB-A
+  controller. `USB`: USB-B, USB-A, then MIDI in. The preferred input takes
+  over at once; a lower one only after 300 ms without clock from the current
+  one. Start, stop, continue and song position follow the same input. The
+  band shows the order when the setting is changed.
 
 ### Themes
 

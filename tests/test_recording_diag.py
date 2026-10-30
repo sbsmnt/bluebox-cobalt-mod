@@ -6,7 +6,7 @@ import firmware_harness as H
 import json,base64
 S=M['symbols']['4'];APP=0x24040000;PAGES=APP+0x280;HEADER=PAGES+0x3c;TEXT=HEADER+0xe4+0x31
 check(not any(k in S for k in ('cpu_numeric_draw','cpu_numeric_tick','cpu_header_has_error')),'no CPU % number code in the M4 payload')
-marker=b'Mout m9'
+marker=b'Cb 1.1a4'
 u=machine(patched);w32(u,0x3000d9fc,APP);call(u,0x813961c,HEADER)
 raw=[0]
 def status(q):

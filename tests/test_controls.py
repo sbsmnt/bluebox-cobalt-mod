@@ -189,13 +189,13 @@ for mode,title in [(0,b'Warp'),(1,b'Granulr'),(2,b'Tape'),(3,b'Ducked'),(4,b'Rev
 TOOLS=0xc0140000;call(u,0x813140c,TOOLS)
 def tools_text(offset):return bytes(u.mem_read(TOOLS+offset+0x65,32)).split(b'\0')[0]
 check(tools_text(0x34)==b'1.5.2','full Tools constructor retains the official version in the right field')
-check(tools_text(0xd4)==b'Mout m9','full Tools constructor fills the existing middle header field')
+check(tools_text(0xd4)==b'Cb 1.1a4','full Tools constructor fills the existing middle header field')
 rects=[struct.unpack('<4i',u.mem_read(TOOLS+o+4,16)) for o in [0x174,0xd4,0x34]]
 check(rects==[(0,182,105,38),(106,182,106,38),(213,182,106,38)],'native header layout puts storage, mod and official version in three separate fields')
 check(all(bytes(u.mem_read(TOOLS+o+0x30,1))==b'\0' for o in [0x174,0xd4,0x34]),'all three Tools header fields are visible')
 # Exercise a native storage-text update; the new middle field must survive it.
 STR=0x24050100;u.mem_write(STR,b'32GB\0');call(u,0x813820c,TOOLS+0x174,STR)
-check(tools_text(0x174)==b'32GB' and tools_text(0xd4)==b'Mout m9' and tools_text(0x34)==b'1.5.2','native storage update leaves mod and official-version fields separate')
+check(tools_text(0x174)==b'32GB' and tools_text(0xd4)==b'Cb 1.1a4' and tools_text(0x34)==b'1.5.2','native storage update leaves mod and official-version fields separate')
 check(bytes(u.mem_read(0x8146bd0,6))==b'1.5.2\0','shared official version string remains intact')
 
 # Density: actual native binding, encoder, fraction and indicator rendering.

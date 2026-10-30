@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.1.0-alpha.4
+
+- **Map CC Sync** (TOOLS > MIDI Settings: Off / USB / USB+MIDI Out / MIDI
+  Out): sends the mapped CC values to the controller on plug-in, project
+  load and scene recall, so LED rings and motor faders follow the bluebox.
+- **MIDI Out** (Default / USB Thru / All Thru): notes and CC from USB, or
+  USB and MIDI in, are passed to the MIDI out with their channel. Clock and
+  transport are never passed on.
+- **Clock Src** (MIDI In / USB): with clock on more than one input, only one
+  is followed; the preferred one takes over at once, another after 300 ms of
+  silence. Changing it shows the order on the band.
+- **Quick save:** hold A for 2 s (was 3 s).
+- TOOLS shows `Cb 1.1a4`.
+
 ## v1.1.0-alpha.3
 
 - **MIXER sends with OUT3:** Gate reads `NG` there, so it fits (six-button

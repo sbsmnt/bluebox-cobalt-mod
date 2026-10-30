@@ -192,7 +192,7 @@ add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x0
 add('Tools MIDI row has no value',0x0814ba3c,struct.pack('<I',0x08131211),struct.pack('<I',PC['pc_tools_event']|1))
 add('Row list tap on the MIDI row opens the MIDI page',0x0814cac4,struct.pack('<I',0x0813d89d),struct.pack('<I',PC['pc_list_event']|1))
 add('Scenes project reader',0x08121416,branch(0x08121416,0x081079c0),branch(0x08121416,PC['sc_read']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.1.0-midi.m9',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.1.0-alpha.4',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['pcm4']=PC
 fields=[
@@ -317,5 +317,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt v1.1.0-midi.m9 patcher. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt v1.1.0-alpha.4 patcher. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code')))
