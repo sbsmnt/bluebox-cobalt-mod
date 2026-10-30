@@ -70,6 +70,16 @@ check(html.includes('max-width:1500px')&&!html.includes('class="badge'),'page is
 let picks=0;elements.file.click=()=>picks++;elements.dropzone.onclick();check(picks===1,'clicking the dropzone opens the firmware picker');
 let prevented=0;const ev={preventDefault:()=>prevented++,dataTransfer:{files:[{name:'BLUEBOX.BIN',size:2097152}]}};elements.dropzone.ondragover(ev);elements.dropzone.ondrop(ev);
 check(prevented===2&&elements.file.files[0].name==='BLUEBOX.BIN'&&elements.fileName.textContent==='BLUEBOX.BIN · 2.00 MB','dropping a firmware file selects it and shows its name');
+// Scenes & MIDI guide under Generate: every topic renders a themed device screen.
+check(html.indexOf('id="guide"')>html.indexOf('id="go"'),'Scenes and MIDI guide sits under Generate');
+const gclick=(attr,v)=>elements.guide.onclick({target:{closest:s=>s==='[data-'+attr+']'?{dataset:attr==='g-topic'?{gTopic:v}:{gSet:v}}:null}});
+for(const t of run('GUIDE_TOPICS.map(x=>x[0])')){gclick('g-topic',t);const svg=elements.guideScreen.innerHTML,body=elements.guideBody.innerHTML;
+ check(svg.includes('<rect')&&!svg.includes('undefined')&&!svg.includes('NaN')&&!body.includes('undefined')&&body.length>200&&elements.guideTabs.innerHTML.includes('data-g-topic="'+t+'" aria-pressed="true"'),'guide topic '+t+' renders its text and screen');
+ check([...svg.matchAll(/data-k="([^"]+)"/g)].flatMap(x=>x[1].split(' ')).every(k=>manifest.theme.fields.some(f=>f.key===k)),'guide screen '+t+' uses theme colours only');}
+elements.previewDepth.value='rgb888';run('applyTheme('+JSON.stringify(vivid)+')');gclick('g-topic','scenes');check(elements.guideScreen.innerHTML.includes(vivid.accent),'guide screens follow the chosen theme');
+gclick('g-topic','sync');gclick('g-set','sync:3');check(elements.guideScreen.innerHTML.includes('Map CC Sync: MIDI Out')&&elements.guideBody.innerHTML.includes('class="gnode lit"><rect x="350" y="115"')&&!elements.guideBody.innerHTML.includes('class="gnode lit"><rect x="350" y="15"'),'Map CC Sync MIDI Out: screen row and diagram light MIDI Out only');
+gclick('g-topic','clock');gclick('g-set','clk:1');check(elements.guideScreen.innerHTML.includes('CLOCK SRC: USB-B > USB-A > MIDI IN'),'Clock Src USB shows the USB-first band');
+gclick('g-topic','recall');elements.guide.oninput({target:{id:'gPc',value:'7'}});check(run('G.pc')===7&&elements.guideScreen.innerHTML.includes('SCENE 8'),'Program Change 7 recalls scene 8 on the guide screen');
 const docs=path.join(root,'docs','index.html');check(fs.existsSync(docs)&&fs.readFileSync(docs,'utf8')===html&&fs.existsSync(path.join(root,'docs','.nojekyll')),'GitHub Pages copy in docs/ matches the patcher page');
 console.log(n+' page-preview mapping, navigation, compare, quantization and input-feedback checks passed. Full browser layout is not verified here.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

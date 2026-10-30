@@ -6,7 +6,7 @@ h1{font-size:28px;line-height:1.15;margin:0 0 6px}h2{font-size:19px;margin:0 0 1
 section{background:var(--panel);border:1px solid var(--line);padding:22px;border-radius:14px;margin:18px 0}
 button,input,select,a{font:inherit;color:inherit}button,select{border-radius:8px;padding:7px 12px}button{background:var(--brand);color:#fff;border:0;cursor:pointer}button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}button.ghost:hover{border-color:var(--mute)}button:disabled,input:disabled,select:disabled{opacity:.45;cursor:not-allowed}
 select{background:var(--panel2);border:1px solid var(--line)}pre{white-space:pre-wrap;overflow-wrap:anywhere}small,.muted{color:var(--mute)}a{color:#9bd2ff}code{font-size:.92em}
-.lede{color:var(--mute);margin:0}.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mute)}
+.lede{color:var(--mute);margin:0}.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mute)}a.chip.jump{border-color:var(--brand);color:var(--ink);text-decoration:none}a.chip.jump:hover{background:var(--brand)}html{scroll-behavior:smooth}#guide{scroll-margin-top:16px}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 .notice{border-left:3px solid var(--warn);padding:2px 0 2px 14px;margin:14px 0 0;color:var(--mute);font-size:14px}
 .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}.toolbar label{display:flex;gap:8px;align-items:center;flex:1}.toolbar select{flex:1}.toolbar.actions button{flex:1}
 .swatches{margin-top:4px}
@@ -36,12 +36,30 @@ details.contrast{margin-top:14px;border:1px solid var(--line);border-radius:10px
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .help{font-size:13px;color:var(--mute);margin-top:14px}.help p{margin:6px 0}
 #themeMessage{min-height:1.4em;font-size:14px}
-@media(max-width:980px){.studio{grid-template-columns:1fr}.controls{position:static;max-height:none;overflow:visible}}
+/* Scenes & MIDI guide */
+.guide{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,420px);gap:24px;align-items:start}.guide .screen{position:sticky;top:16px}
+#guideTabs{margin-bottom:14px}#guideTabs button[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:#fff}
+#guideBody p{margin:0 0 10px}#guideBody .seg{margin:4px 0 10px;flex-wrap:wrap}#guideBody .muted{font-size:13px}
+.gsteps{margin:0 0 12px;padding-left:22px}.gsub{font-weight:600;margin:14px 0 6px!important}.gincl{columns:2 220px;column-gap:24px;margin:0 0 12px;padding-left:20px;font-size:14px}.gincl li{margin:2px 0;break-inside:avoid}.gsteps li{margin:3px 0}
+kbd{font:600 12px ui-monospace,Menlo,monospace;background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+.gdesc{border-left:3px solid var(--brand);padding:2px 0 2px 12px}
+.ghold{padding:12px 26px;font-weight:700;user-select:none;touch-action:none;margin:2px 10px 12px 0}.ghold:active{filter:brightness(1.2)}
+.gcalc{display:flex;flex-wrap:wrap;gap:12px;margin:4px 0 10px}.gcalc label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}.gcalc input[type=number]{width:120px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px}.gcalc .gcheck{flex-direction:row;align-items:center;align-self:end}
+.gresult{background:var(--panel2);border-radius:10px;padding:10px 14px}.gresult b{color:var(--ink)}
+.glist{display:grid;gap:6px}.glist button{display:grid;grid-template-columns:120px 1fr;gap:12px;text-align:left;background:transparent;border:1px solid var(--line);color:var(--mute);font-size:13px}.glist button b{color:var(--ink)}.glist button[aria-pressed=true]{background:var(--panel2);border-color:var(--brand)}
+.glink{color:#9bd2ff;cursor:pointer;white-space:nowrap}.glink:hover{text-decoration:underline}
+.gflow{display:block;width:100%;height:auto;margin:6px 0 10px;font:600 14px system-ui,sans-serif}
+.gnode rect{fill:var(--panel2);stroke:var(--line);stroke-width:1.5}.gnode.lit rect{stroke:var(--brand);stroke-width:2.5}.gnode text{fill:var(--ink);text-anchor:middle}.gnode text.sub{fill:var(--mute);font-size:11px;font-weight:400}
+.gwire{fill:none;stroke:var(--line);stroke-width:2.5}.gwire.dim{stroke-width:1.5}.gwire.on{stroke:var(--brand);stroke-dasharray:8 6;animation:gdash .8s linear infinite}
+@keyframes gdash{to{stroke-dashoffset:-14}}@media(prefers-reduced-motion:reduce){.gwire.on{animation:none}}
+.grank circle{fill:var(--brand)}.grank text{fill:#fff;text-anchor:middle;font-size:13px}.gnote text{fill:var(--mute);font-size:12px;font-weight:400;text-anchor:middle}
+.gtable{border-collapse:collapse;font-size:13px;margin:0 0 10px}.gtable th,.gtable td{border-bottom:1px solid var(--line);padding:5px 14px 5px 0;text-align:left}.gtable th{color:var(--mute);font-weight:600}.gtable .y{color:var(--brand)}.gtable .n{color:var(--mute)}
+@media(max-width:980px){.studio{grid-template-columns:1fr}.guide{grid-template-columns:1fr}.guide .screen{position:static;max-width:420px}.controls{position:static;max-height:none;overflow:visible}}
 @media(max-width:560px){body{padding:16px 12px 40px}section{padding:16px}.screen{border-width:4px}.swatch-row{grid-template-columns:34px 1fr 78px;gap:8px;padding:6px 4px}}
 </style>
 <header><h1>Bluebox Cobalt mod</h1><p class="lede">Unofficial effects &amp; theme mod for bluebox desktop firmware 1.5.2 · v__VERSION__</p>
-<div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span></div>
-<p class="notice">Use the original official desktop 1.5.2 firmware. Includes the Gazer reverb (FX2 → B → Gazer), Gate with MIXER detector meters, FX1 modes (Delay, Granular, Tape with Lo C, Ducked, Reverse), Soft/Tape master saturation, the CPU load bar, compressor meters and the overdub recording fix. Keep your working firmware and a project backup.</p></header>
+<div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span><a class="chip jump" href="#guide">New in v1.1: scenes and MIDI ›</a></div>
+<p class="notice">Use the original official desktop 1.5.2 firmware. Keep your working firmware and a project backup.</p></header>
 <section><h2><span class="step">1</span>Firmware</h2><div class="drop" id="dropzone" role="button" tabindex="0" aria-label="Choose the original BLUEBOX.BIN"><strong>Drop BLUEBOX.BIN here</strong><span class="muted">or click to browse</span><span id="fileName"></span></div><input id="file" type="file" accept=".bin,.BIN" hidden aria-label="Original firmware"><label style="display:block;margin-top:12px"><input id="restore" type="checkbox"> Restore the original from a Cobalt __VERSION__ firmware file</label><small>Restore detects this version’s theme colours automatically.</small></section>
 <section><h2><span class="step">2</span>Theme</h2>
 <div class="studio"><div class="controls">
@@ -60,6 +78,7 @@ __THEME_FIELDS_HTML__
 <div class="under"><span id="screenName">MIXER · Vol</span><span class="legend"><span><i style="background:#00c850"></i>CPU meter: fixed mod colours</span><span><i style="background:#0b0b0b;border:1px solid #555"></i>Header strip, wells and dividers: fixed</span></span></div>
 <details class="contrast"><summary>Contrast check</summary><small id="contrast"></small></details><p class="muted" style="font-size:12px">An approximate 320 × 240 recreation of the device screens. Fonts, spacing and LCD response differ slightly on the device.</p></div></div></section>
 <section><h2><span class="step">3</span>Generate</h2><p class="muted">Generate a new BLUEBOX.BIN and install it with your usual SD-card procedure. Choosing another theme needs no code compilation.</p><button id="go" disabled>Verify and prepare download</button><pre id="status" aria-live="polite"></pre><a id="download" hidden>Download BLUEBOX.BIN</a><p><small>Unofficial firmware · Cobalt v__VERSION__. See the README for installation steps.</small></p></section>
+<section id="guide"><h2>Using scenes and MIDI</h2><p class="muted">What the new v1.1 features do on the device, step by step. The screens use your theme.</p><div class="tabs" id="guideTabs" role="group" aria-label="Guide topic"></div><div class="guide"><div id="guideBody"></div><div class="screen"><svg id="guideScreen" viewBox="0 0 320 240" role="img" aria-label="Bluebox screen for this topic"></svg></div></div></section>
 <script>
 'use strict';const manifest=__MANIFEST_JSON__;
 const el=id=>document.getElementById(id),file=el('file'),go=el('go'),restore=el('restore'),status=el('status'),download=el('download'),fields=manifest.theme.fields;
@@ -190,6 +209,107 @@ const DRAW={
   P.path(d1,7,1);P.path(d2,'accent',1);P.line(4,160,271,160,15,.7);P.line(4,205,271,205,15,.7);P.text(4,236,'Time Scale: 80 ms','text',8,'start');P.text(271,236,'Volt Scale: 1.35 V','text',8,'end');}
 };
 let view='mixer',mode='single',comparing=false,focusKey=null;
+// Scenes & MIDI guide (under Generate). Device screens reuse the theme painter,
+// so they follow the chosen colours; the diagrams use the page colours.
+const BAND_BG='#101010',BAND_BAR='#09d7f5',WHITE='#ffffff',HOLD_MS=2000,HOLD_SHOW_MS=250;
+const G={topic:'scenes',row:0,setting:0,mout:0,sync:1,clk:0,bank:0,pc:2,from1:false,held:0,saved:0,timer:null};
+const MOUT=['Default','USB Thru','All Thru'],SYNC=['Off','USB','USB+MIDI Out','MIDI Out'],CLK=['MIDI In','USB'];
+const CLK_ORDER=[['MIDI In','USB-B','USB-A'],['USB-B','USB-A','MIDI In']];
+function band(P,msg,fill=0){P.rect(0,0,320,12,BAND_BG);if(fill)P.rect(0,10,fill,2,BAND_BAR);P.text(3,9.5,msg,WHITE,9,'start');}
+function scenePage(P,sel,load=3){base(P);P.text(8,45,'Night Drive',WHITE,15,'start');button(P,226,20,93,38,'Select','button_idle',15);
+ listRows(P,['Load Scene: '+load,'Save Scene: 4','Bank #: '+(G.bank+1)],sel,{y:62,h:26,selText:30});}
+function projPage(P){base(P);P.rect(0,20,52,36,'button_idle');['File','Save','Load'].forEach((l,i)=>button(P,53+i*89,20,88,36,l,l==='Load'?'button_active':'button_idle',15));
+ ['Ambient Loop','* Night Drive','Shoegaze Set','Sketch 04','Sketch 05'].forEach((l,i)=>{const y=96+i*20;if(i===1)P.rect(40,y-14,250,18,'button_active');P.text(44,y,l,i===1?13:'text',14,'start');});}
+function midiPage(P,sel){base(P);listRows(P,['Bank CC: MSB CC0','PC Ch: All','MIDIStopRcv: OFF','MIDI Out: '+MOUT[G.mout],'Map CC Sync: '+SYNC[G.sync],'Clock Src: '+CLK[G.clk]],sel,{y:26,h:26,selText:30});}
+function quickMsg(){if(G.saved)return ['SCENE 3 SAVED',0];if(!G.held)return null;const e=Date.now()-G.held;return e<HOLD_SHOW_MS?null:['HOLD A: SAVE SCENE 3',Math.min(320,Math.round(e*320/HOLD_MS))];}
+const GUIDE_SCREENS={
+ scenes:P=>scenePage(P,G.row),
+ quick:P=>{DRAW.main(P);const m=quickMsg();if(m)band(P,m[0],m[1]);},
+ recall:P=>{scenePage(P,2,G.pc+1);band(P,'SCENE '+(G.pc+1));},
+ settings:P=>midiPage(P,G.setting),
+ sync:P=>midiPage(P,4),thru:P=>midiPage(P,3),
+ clock:P=>{DRAW.main(P);band(P,'CLOCK SRC: '+CLK_ORDER[G.clk].join(' > ').toUpperCase());}};
+const GUIDE_TOPICS=[['scenes','Scenes'],['quick','Quick save'],['recall','MIDI recall'],['settings','MIDI Settings'],['sync','Map CC Sync'],['thru','MIDI Out'],['clock','Clock Src']];
+const seg=(key,opts,cur)=>`<div class="seg" role="group">${opts.map((o,i)=>`<button type="button" data-g-set="${key}:${i}" aria-pressed="${i===cur}">${o}</button>`).join('')}</div>`;
+const steps=a=>'<ol class="gsteps">'+a.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
+const kbd=s=>'<kbd>'+s+'</kbd>';
+const SCENE_ROWS=[
+ ['Load Scene','Recalls that scene. Only the values that differ change and nothing is loaded, so playback and recording carry on. The band shows <code>SCENE 3</code>, or <code>SCENE 3 IS EMPTY</code>.'],
+ ['Save Scene','Saves the current mixer, master and aux buses, FX1/FX2 (with the effect type) and BPM to that scene, then saves the project. The band shows <code>SCENE 4 SAVED</code>.'],
+ ['Bank #','The number MIDI Bank Select uses to load this project: None or 1–128. A number another project already has is refused (<code>BANK 2 IN USE</code>). PROJ '+kbd('Save')+' also applies the number chosen here.']];
+const SETTING_ROWS=[
+ ['Bank CC','Which CC loads a project: <code>MSB CC0</code> (default) or <code>LSB CC32</code>. Value 0 is Bank # 1.'],
+ ['PC Ch','The channel for Program Change and Bank Select: <code>All</code>, <code>None</code> (ignore both) or 1–16.'],
+ ['MIDIStopRcv','The stock setting, moved here from the TOOLS list.'],
+ ['MIDI Out','What the MIDI out passes on besides the bluebox’s own MIDI.','thru'],
+ ['Map CC Sync','Where the values of your mapped CCs are sent, so a controller shows them.','sync'],
+ ['Clock Src','Which input is followed when more than one sends clock.','clock']];
+function node(x,y,w,h,label,sub,cls=''){return `<g class="gnode ${cls}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/><text x="${x+w/2}" y="${y+h/2+(sub?-3:5)}">${label}</text>${sub?`<text class="sub" x="${x+w/2}" y="${y+h/2+14}">${sub}</text>`:''}</g>`;}
+const wire=(d,on,cls='')=>`<path class="gwire ${on?'on':''} ${cls}" d="${d}"/>`;
+function syncFlow(){const m=G.sync,usb=m===1||m===2,din=m>=2;
+ return `<svg class="gflow" viewBox="0 0 560 190" role="img" aria-label="Map CC Sync destinations">${wire('M190 95 C 270 95 270 45 350 45',usb)}${wire('M190 95 C 270 95 270 145 350 145',din)}
+ ${node(20,60,170,70,'bluebox','mapped CCs')}${node(350,15,190,60,'USB-A controller','LED rings · motor faders',usb?'lit':'')}${node(350,115,190,60,'MIDI Out','DIN',din?'lit':'')}</svg>`;}
+function syncTable(){const m=G.sync,usb=m===1||m===2,din=m>=2,y='<td class="y">●</td>',n='<td class="n">–</td>';
+ return `<table class="gtable"><tr><th>When</th><th>USB-A</th><th>MIDI Out</th></tr><tr><td>Controller plugged in</td>${usb?y:n}${n}</tr><tr><td>Project load</td>${usb?y:n}${din?y:n}</tr><tr><td>Scene recall</td>${usb?y:n}${din?y:n}</tr></table>`;}
+function thruFlow(){const m=G.mout,ins=[['MIDI In','DIN',m===2],['USB-B','computer',m>=1],['USB-A','controller',m>=1]];
+ return `<svg class="gflow" viewBox="0 0 560 230" role="img" aria-label="MIDI Out thru paths">${ins.map(([,,on],i)=>wire(`M150 ${45+i*70} C 200 ${45+i*70} 200 115 230 115`,false,'dim')+(on?wire(`M150 ${45+i*70} C 260 ${45+i*70} 300 ${101+i*14} 410 ${101+i*14}`,true):'')).join('')}
+ ${wire('M370 115 L 410 115',true)}${ins.map(([l,s,on],i)=>node(10,20+i*70,140,50,l,s,on?'lit':'')).join('')}${node(230,75,140,80,'bluebox',m?'thru: '+MOUT[m]:'own MIDI only')}${node(410,85,140,60,'MIDI Out','DIN','lit')}
+ <g class="gnote"><text x="300" y="215">clock · start · stop · song position: never passed on</text></g></svg>`;}
+function clockFlow(){const o=CLK_ORDER[G.clk],sub={'MIDI In':'DIN','USB-B':'computer','USB-A':'controller'};
+ return `<svg class="gflow" viewBox="0 0 560 230" role="img" aria-label="Clock source order">${o.map((l,i)=>wire(`M190 ${45+i*70} C 260 ${45+i*70} 260 115 330 115`,i===0,i?'dim':'')).join('')}
+ ${o.map((l,i)=>`<g class="grank"><circle cx="24" cy="${45+i*70}" r="13"/><text x="24" y="${50+i*70}">${i+1}</text></g>`+node(44,20+i*70,146,50,l,sub[l],i===0?'lit':'')).join('')}${node(330,75,200,80,'bluebox','follows input 1')}
+ <g class="gnote"><text x="430" y="190">if 1 stops: 2 after 300 ms</text></g></svg>`;}
+function recallText(){const b=G.bank,p=G.pc,o=G.from1?1:0;
+ return `<p class="gresult">Bank Select <b>${b+o}</b> loads the project with <b>Bank # ${b+1}</b>; Program Change <b>${p+o}</b> then recalls <b>scene ${p+1}</b>.</p>`;}
+const GUIDE_BODY={
+ scenes:()=>`<p>Scenes recall a mix instantly, without loading the project. Each project keeps up to 16, saved in the project file.</p>
+  ${steps(['Press '+kbd('PROJ')+' and select a project in the list.','Press '+kbd('A')+': the scene page opens with the project name at the top.','Turn a top encoder to pick a row, a bottom encoder to change its number.','Tap '+kbd('Select')+'. Press '+kbd('A')+' to leave.'])}
+  ${seg('row',SCENE_ROWS.map(r=>r[0]),G.row)}<p class="gdesc">${SCENE_ROWS[G.row][1]}</p>
+  <p class="gsub">A scene is a snapshot of:</p><ul class="gincl">${['track level','pregain','pan','sends','mute','solo','compressor','EQ','gate','the master and aux buses','every FX1/FX2 parameter, including the effect type','the BPM'].map(x=>'<li>'+x+'</li>').join('')}</ul>
+  <p class="muted">In the PROJ list the loaded project shows <code>* </code>; a new project starts at scene 1.</p>`,
+ quick:()=>`<p>Save the next empty scene without leaving MAIN.</p>
+  ${steps(['On '+kbd('MAIN')+', hold '+kbd('A')+'.','The band at the top shows <code>HOLD A: SAVE SCENE n</code> and fills.','At 2 s the scene is saved (<code>SCENE n SAVED</code>) and so is the project. Let go earlier and nothing is saved.'])}
+  <button type="button" class="ghold" data-g-hold>Hold A</button> <span class="muted">Try it: press and hold.</span>
+  <p class="muted">When all 16 scenes are used the band shows <code>NO SCENE SLOTS</code>.</p>`,
+ recall:()=>`<p>Recall projects and scenes from a sequencer or controller.</p>
+  ${steps(['Give each project a '+kbd('Bank #')+' on its scene page.','In TOOLS › MIDI Settings set '+kbd('Bank CC')+' and '+kbd('PC Ch')+'.','Send Bank Select to load a project, Program Change to recall a scene. A Program Change right after a Bank Select waits for the load.'])}
+  <div class="gcalc"><label>Bank Select value <input id="gBank" type="number" min="${G.from1?1:0}" max="${G.from1?128:127}" value="${G.bank+(G.from1?1:0)}"></label>
+  <label>Program Change <input id="gPc" type="number" min="${G.from1?1:0}" max="${G.from1?16:15}" value="${G.pc+(G.from1?1:0)}"></label>
+  <label class="gcheck"><input id="gFrom1" type="checkbox"${G.from1?' checked':''}> My gear counts from 1</label></div><div id="gResult">${recallText()}</div>
+  <p class="muted">Programs 0–15 are scenes 1–16 (PC 1–16 on gear that counts from 1).</p>`,
+ settings:()=>`<p>TOOLS › tap <b>MIDI Settings</b> (or select it and press ${kbd('B')}). ${kbd('B')} goes back. Pick a row:</p>
+  <div class="glist">${SETTING_ROWS.map(([k,d,go],i)=>`<button type="button" data-g-set="setting:${i}" aria-pressed="${i===G.setting}"><b>${k}</b><span>${d}${go?` <span class="glink" data-g-topic="${go}">More ›</span>`:''}</span></button>`).join('')}</div>`,
+ sync:()=>`<p>Controllers with LED rings or motor faders (OXI E16, MIDI Fighter Twister, Launch Control XL 3, Roto-Control, Faderfox EC4, …) can show the bluebox values. The bluebox sends the current value of every mapped CC, so the controller matches the project and scene.</p>
+  ${seg('sync',SYNC,G.sync)}<div id="gFlow">${syncFlow()}${syncTable()}</div>
+  <p class="muted">The controller must listen on the same channel and CC it sends (usually the default). If values can’t get out the band shows <code>MAP CC SYNC: USB OUT STUCK</code> or <code>MIDI OUT STUCK</code>.</p>`,
+ thru:()=>`<p>Pass MIDI from other inputs to the MIDI out, with their channels, alongside the bluebox’s own MIDI.</p>
+  ${seg('mout',MOUT,G.mout)}<div id="gFlow">${thruFlow()}</div>
+  <p class="muted">Clock and transport are never passed on, so the next device never sees two clocks. Turn on Clock Out to send the bluebox tempo.</p>`,
+ clock:()=>`<p>With clock on more than one input, the bluebox follows one, ranked by this setting. Changing it shows the order on the band.</p>
+  ${seg('clk',CLK,G.clk)}<div id="gFlow">${clockFlow()}</div>
+  <p class="muted">A higher-ranked input takes over at once; a lower one only after 300 ms without clock from the current one. Start, stop, continue and song position follow the same input. Notes and CC from every input work as usual.</p>`};
+function guideScreen(t){const depth=el('previewDepth')?.value||'rgb888',P=painter(t,depth);GUIDE_SCREENS[G.topic](P);return P.svg();}
+function renderGuideScreen(){const s=el('guideScreen');if(!s)return;try{s.innerHTML=guideScreen(themeForPreview());}catch{}}
+function renderGuide(){const tabs=el('guideTabs'),body=el('guideBody');if(!tabs||!body)return;
+ tabs.innerHTML=GUIDE_TOPICS.map(([k,l])=>`<button type="button" data-g-topic="${k}" aria-pressed="${k===G.topic}">${l}</button>`).join('');
+ body.innerHTML=GUIDE_BODY[G.topic]();renderGuideScreen();}
+function guideHoldEnd(){if(G.timer)clearInterval(G.timer);G.timer=null;G.held=0;renderGuideScreen();}
+const groot=el('guide');
+if(groot){
+ groot.onclick=e=>{const t=e.target.closest?.('[data-g-topic]'),s=e.target.closest?.('[data-g-set]');
+  if(t){G.topic=t.dataset.gTopic;guideHoldEnd();G.saved=0;renderGuide();}
+  else if(s){const [k,v]=s.dataset.gSet.split(':');G[k]=+v;renderGuide();}};
+ groot.oninput=e=>{const id=e.target.id,o=G.from1?1:0,n=v=>Math.round(+v)||0;
+  if(id==='gFrom1'){G.from1=e.target.checked;renderGuide();return;}
+  if(id==='gBank')G.bank=Math.max(0,Math.min(127,n(e.target.value)-o));else if(id==='gPc')G.pc=Math.max(0,Math.min(15,n(e.target.value)-o));else return;
+  const r=el('gResult');if(r)r.innerHTML=recallText();renderGuideScreen();};
+ groot.onpointerdown=e=>{if(!e.target.closest?.('[data-g-hold]'))return;e.preventDefault?.();G.saved=0;G.held=Date.now();
+  G.timer=setInterval(()=>{if(Date.now()-G.held>=HOLD_MS){clearInterval(G.timer);G.timer=null;G.held=0;G.saved=Date.now();setTimeout(()=>{G.saved=0;renderGuideScreen();},2500);}renderGuideScreen();},40);};
+ groot.onpointerup=groot.onpointercancel=()=>{if(G.held)guideHoldEnd();};
+ groot.onkeydown=e=>{if((e.key===' '||e.key==='Enter')&&e.target.closest?.('[data-g-hold]')&&!G.held&&!e.repeat)groot.onpointerdown(e);};
+ groot.onkeyup=()=>{if(G.held)guideHoldEnd();};
+}
+renderGuide();
 function drawSVG(t,depth,v){const P=painter(t,depth);DRAW[v](P);return P.svg();}
 function themeForPreview(){if(comparing)return validateTheme(manifest.theme.presets.Default);return currentTheme();}
 function applyFocus(){const svgs=$$('#themePreview svg');for(const s of svgs){toggle(s,'focus',!!focusKey);for(const n of s.querySelectorAll?s.querySelectorAll('[data-k]'):[])toggle(n,'hl',!!focusKey&&n.dataset.k.split(' ').includes(focusKey));}}
@@ -204,7 +324,7 @@ function renderScreen(t){
  applyFocus();
 }
 function contrastRatio(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
-function updatePreview(){try{const t=currentTheme();for(const f of fields)preview.style.setProperty('--'+f.key,t[f.key]);renderScreen(themeForPreview());const depth=el('previewDepth').value||'rgb888',q=c=>displayColor(c,depth);
+function updatePreview(){try{const t=currentTheme();for(const f of fields)preview.style.setProperty('--'+f.key,t[f.key]);renderScreen(themeForPreview());renderGuideScreen();const depth=el('previewDepth').value||'rgb888',q=c=>displayColor(c,depth);
  const pairs=[['Idle button labels',t.text,t.button_idle],['Lit button labels',t.slot15,t.button_active],['REC on label',t.slot15,t.slot11],['SOLO on label',t.slot15,t.slot23],['Track numbers / selection',t.text,t.accent],['Spectrum / graph background',t.slot07,t.slot08],['Knobs / black panel',t.knob,'#0b0b0b'],['Text / base',t.text,t.background]];
  el('contrast').textContent=pairs.map(([name,a,b])=>{const ratio=contrastRatio(q(a),q(b));return name+': '+ratio.toFixed(1)+':1'+(ratio<3?' · low contrast':'');}).join('\n');}catch{el('contrast').textContent='Enter complete #RRGGBB colors. Preview retains the last valid theme.';}}
 el('previewDepth').onchange=updatePreview;
