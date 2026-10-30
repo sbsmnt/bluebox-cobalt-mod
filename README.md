@@ -21,7 +21,7 @@ here.
   with no project load, so playback and recording carry on.
 - **Scene page:** select a project in PROJ and press A to load or save a
   scene and set the project's Bank #.
-- **Quick save:** hold A for 3 s on MAIN to save the next empty scene.
+- **Quick save:** hold A for 2 s on MAIN to save the next empty scene.
 - **MIDI recall:** Program Change recalls a scene; Bank Select loads the
   project with that Bank #. Channel and Bank CC in TOOLS > MIDI Settings.
 - **PROJ list:** the loaded project is marked with `* `, and long names
@@ -242,7 +242,7 @@ that differ, without loading anything, so playback and recording carry on.
   - **Bank #:** give the project a number (None or 1–128) for MIDI Bank
     Select. A number another project has is refused ("BANK n IN USE").
   Press A to leave. PROJ Save also applies the Bank # chosen there.
-- **Quick save:** hold A for 3 s on MAIN. A band at the top shows progress,
+- **Quick save:** hold A for 2 s on MAIN. A band at the top shows progress,
   then saves the next empty scene. A new project starts at scene 1.
 - **MIDI:** Program Change recalls a scene: program 0 (PC 1 on gear that
   counts from 1) is scene 1. Bank Select loads the project with that Bank #

@@ -606,14 +606,14 @@ void pc_project_save(void *session) {
     }
     ((void (*)(void *))0x081224d5u)(session);
 }
-/* Quick save: hold A for 3 s on MAIN (page 8). A's button entry is the one
+/* Quick save: hold A for 2 s on MAIN (page 8). A's button entry is the one
  * whose press id is 0x0c in the debounced button table 0x30009d80 (13
  * buttons of 24 B, set up at 0x081047a0: 0-7 track keys 0xf9, 8 REC 0xf4,
  * 9 PLAY 0xf6, 10 STOP 0xf7, 11 B 0x07, 12 A 0x0c; level at +0x0e); idle
  * level = majority of the eight track keys. */
 #define PC_BTN(k) (*(volatile uint8_t *)(0x30009d80u+24u*(k)+0x0eu))
 #define PC_BTN_PRESS(k) (*(volatile uint16_t *)(0x30009d80u+24u*(k)+0x08u))
-#define PC_HOLD_MS 3000u
+#define PC_HOLD_MS 2000u
 #define PC_HOLD_SHOW_MS 250u
 static int pc_a_held(void) {
     uint32_t *abtn=sc_field(F_ABTN);

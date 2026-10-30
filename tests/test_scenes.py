@@ -551,7 +551,7 @@ curname[0]='Other'
 check(row(1)==(1,b'* Other') and row(0)==(1,b'Mine') and row(5)==(0,b''),'PROJ list: "* " marks the loaded project only')
 curname[0]='Mine'
 
-# Quick save: hold A for 3 s on MAIN (page 8) saves to the next empty scene.
+# Quick save: hold A for 2 s on MAIN (page 8) saves to the next empty scene.
 # Button table as the stock init (0x081047a0) sets it up: A is entry 12.
 BT=0x30009d80
 call(u,0x81047a0)
@@ -560,10 +560,10 @@ for k in range(13):u.mem_write(BT+24*k+0xe,b'\x01')  # idle = high
 w32(u,field(5),0)
 def hold(level):u.mem_write(BT+24*12+0xe,bytes([0 if level else 1]))
 page(8);used0=used(u);nxt=[k for k in range(16) if not used0>>k&1][0]
-hold(1);mainpass(dt=10);mainpass(dt=1000);mainpass(dt=1000)
-check(used(u)==used0,'held 2 s: nothing saved yet')
-mainpass(dt=1100)
-check(used(u)==used0|1<<nxt and current(u)==nxt+1 and TOAST()==(3<<8)|(nxt+1),'held 3 s on MAIN: saved to the next empty scene (%d), "SCENE %d SAVED"'%(nxt+1,nxt+1))
+hold(1);mainpass(dt=10);mainpass(dt=1000);mainpass(dt=900)
+check(used(u)==used0,'held 1.9 s: nothing saved yet')
+mainpass(dt=200)
+check(used(u)==used0|1<<nxt and current(u)==nxt+1 and TOAST()==(3<<8)|(nxt+1),'held 2 s on MAIN: saved to the next empty scene (%d), "SCENE %d SAVED"'%(nxt+1,nxt+1))
 DIRTY=APP+0x280+0x39
 u.mem_write(DIRTY,b'\x00');mainpass(dt=50)
 check(u.mem_read(DIRTY,1)[0]==1,'while the band shows, the UI layer is marked dirty so the flip draws it')
@@ -575,7 +575,7 @@ u.mem_write(DIRTY,b'\x00');mainpass(dt=100);check(u.mem_read(DIRTY,1)[0]==0,'the
 hold(0);mainpass(dt=10);page(2);hold(1);mainpass(dt=10);mainpass(dt=4000)
 check(used(u)==used0|1<<nxt,'holding A on another page (MIXER) saves nothing')
 hold(0);mainpass(dt=10);page(8)
-w32(u,SB(u)+8,0xffff);hold(1);mainpass(dt=10);mainpass(dt=3100)
+w32(u,SB(u)+8,0xffff);hold(1);mainpass(dt=10);mainpass(dt=2100)
 check(TOAST()==(4<<8),'all 16 slots used: "NO SCENE SLOTS", nothing saved')
 hold(0);mainpass(dt=10);w32(u,SB(u)+8,used0|1<<nxt)
 
@@ -615,10 +615,10 @@ w32(u,APP+0x2b4,APP+0x119a88);check(strip()==bytes(320*38*2),'other views: no na
 w32(u,field(4),0)
 w32(u,0x3001eb3c,clock[0]+2000)
 n=len(flips);check(present(1)==bytes(320*12*2) and len(flips)==n+1,'message expires after its time; the flip still runs')
-hold(1);w32(u,field(6),clock[0]+500);w32(u,field(7),0);w32(u,0x3001eb3c,clock[0]+2000)
+hold(1);w32(u,field(6),clock[0]+1000);w32(u,field(7),0);w32(u,0x3001eb3c,clock[0]+2000)
 img=present(1);bar=img[320*2*10:320*2*11]
 filled=sum(1 for i in range(0,len(bar),2) if bar[i:i+2]!=struct.pack('<H',0x1082))
-check(150<=filled<=170,'holding A for 1.5 s: progress bar half full (%d px)'%filled)
+check(150<=filled<=170,'holding A for 1 s: progress bar half full (%d px)'%filled)
 hold(0)
 
 # PROJ list: a selected name longer than 23 characters scrolls in the middle row.
