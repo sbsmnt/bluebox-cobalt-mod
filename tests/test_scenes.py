@@ -27,7 +27,8 @@ def heap_machine(image=patched):
 def definitions(image,size):
  u=heap_machine(image);call(u,0x8134cb8,0)
  return u,bytes(u.mem_read(0xc0010000,size))
-a,old=definitions(stock,0x3934);u,new=definitions(patched,0x47f8)
+a,old=definitions(stock,0x3934);u,new=definitions(patched,0x484c)
+check(patched[0x08134cce-0x08040000:][:4]==bytes.fromhex('44f64c00') and patched[0x08134ce0-0x08040000:][:4]==bytes.fromhex('44f64e02'),'definition table: allocation (r0) 0x484c = 0x295 records, clear length (r2) 0x484e')
 cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba)}
 check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(0x20b) if i not in cobalt),'stock parameter definitions 0..0x20a are preserved')
 recs=[struct.unpack('<HB',new[i*28:i*28+3]) for i in range(TAG0,TAG0+SLOTS)]
@@ -35,9 +36,9 @@ check(all(r==(TAG0+i,1) for i,r in enumerate(recs)),'128 PC slot records registe
 check([string(u,u32(u,0xc0010000+(TAG0+i)*28+24)) for i in (0,5,127)]==[b'pcmap0',b'pcmap5',b'pcmap127'],'slot keys pcmap0/pcmap5/pcmap127')
 check(string(u,call(u,0x8136134,TAG0))==b'pcmap0' and string(u,call(u,0x8136134,0x28a))==b'pcmap127','tag->name resolves the first and last slot')
 check(string(u,call(u,0x8136134,0x28b))==b'bankcc' and struct.unpack('<H',new[0x28b*28:0x28b*28+2])[0]==0x28b,'Bank CC setting registered at 0x28b (bankcc)')
-keys={0x28b:b'bankcc',0x28c:b'scenesel',0x28d:b'scenesave',0x28e:b'bankassign',0x28f:b'scenech',0x290:b'bankch',0x291:b'midimenu'}
-check(all(string(u,call(u,0x8136134,i))==k for i,k in keys.items()),'scene/MIDI tags registered at 0x28b..0x291')
-check(call(u,0x8136134,0x292)==0,'tag->name still refuses ids past the table')
+keys={0x28b:b'bankcc',0x28c:b'scenesel',0x28d:b'scenesave',0x28e:b'bankassign',0x28f:b'scenech',0x290:b'bankch',0x291:b'midimenu',0x292:b'dinout',0x293:b'ccsync',0x294:b'clksrc'}
+check(all(string(u,call(u,0x8136134,i))==k for i,k in keys.items()),'scene/MIDI tags registered at 0x28b..0x294')
+check(call(u,0x8136134,0x295)==0,'tag->name still refuses ids past the table')
 u.mem_write(0x24010000,b'bankcc\0');check(call(u,0x8136164,0x24010000)==0x28b,'name->tag finds bankcc')
 check(string(u,call(u,0x8136134,0x43))==b'mstdrive','tag->name keeps Cobalt/stock names')
 u.mem_write(0x24010000,b'pcmap5\0');check(call(u,0x8136164,0x24010000)==TAG0+5,'name->tag finds pcmap5 in the extended table')
@@ -53,7 +54,7 @@ def defaults(image):
 _,sold,scap=defaults(stock);u,snew,cap=defaults(patched)
 check(scap==0x44 and cap==0x90,'settings capacity 68 -> 144')
 check(snew[:7]==sold and len(sold)==7,'stock settings defaults unchanged and first')
-check(snew[7:]==[(TAG0+i,0) for i in range(SLOTS)]+[(0x28b,0),(0x28f,0),(0x290,0),(0x291,0)] and len(snew)<=cap,'Bank # slots, Bank CC (MSB), Scene/Bank channels (All) and the MIDI row appended within capacity')
+check(snew[7:]==[(TAG0+i,0) for i in range(SLOTS)]+[(0x28b,0),(0x28f,0),(0x290,0),(0x291,0),(0x292,0),(0x293,1),(0x294,0)] and len(snew)<=cap,'Bank # slots, Bank CC (MSB), Scene/Bank channels (All), the MIDI row, MIDI Out (Default), Map CC Sync (USB) and Clock Src (MIDI In) appended within capacity')
 
 # settings.tml writer/reader loops with the XML object boundary stubbed.
 u=heap_machine();call(u,0x8134cb8,0);call(u,0x8120a52,SETTINGS)
@@ -66,7 +67,7 @@ stub(u,0x81074dc,key);stub(u,0x8106dc6,lambda u:saved.update({last[0]:u.reg_read
 call(u,0x8120264,SETTINGS,TAG0+4,0xdeadbeef);call(u,0x8120264,SETTINGS,TAG0+127,0x1234)
 call(u,0x8137698,0x24010000,0,0,SETTINGS,end=0x813774e)
 check(saved.get('pcmap4')==0xdeadbeef and saved.get('pcmap127')==0x1234 and saved.get('pcmap0')==0,'settings writer emits every PC slot attribute')
-check(len([k for k in saved if k.startswith('pcmap')])==SLOTS and len(saved)==7+SLOTS+4 and saved.get('bankcc')==0 and saved.get('scenech')==0 and saved.get('midimenu')==0,'writer emits 7 stock + 128 slot + 4 MIDI attributes')
+check(len([k for k in saved if k.startswith('pcmap')])==SLOTS and len(saved)==7+SLOTS+7 and saved.get('bankcc')==0 and saved.get('scenech')==0 and saved.get('midimenu')==0 and saved.get('dinout')==0 and saved.get('ccsync')==1 and saved.get('clksrc')==0,'writer emits 7 stock + 128 slot + 7 MIDI attributes')
 stub(u,0x8137be8,lambda u:u.reg_write(UC_ARM_REG_R0,1))
 def find(u):last[0]=string(u,u.reg_read(UC_ARM_REG_R1)).decode();u.reg_write(UC_ARM_REG_R0,XML if last[0] in saved else 0)
 stub(u,0x810747c,find)
@@ -240,7 +241,7 @@ check(after(0x10a)[0]==2 and after(0x11e)[0]==2,'keyboard/keypad overlay pages f
 
 # Tools panel: PC slots never become rows.
 rows=[];stub(u,0x8138546,lambda u:rows.append(u.reg_read(UC_ARM_REG_R1)))
-for tag in (0x80,0x81,0x117,TAG0,TAG0+127,0x28b,0x28f,0x290,0x291,0x204):call(u,PC['pc_tools_append'],0x24070000,tag,0)
+for tag in (0x80,0x81,0x117,TAG0,TAG0+127,0x28b,0x28f,0x290,0x291,0x292,0x293,0x294,0x204):call(u,PC['pc_tools_append'],0x24070000,tag,0)
 check(rows==[0x80,0x81,0x291,0x204],'Tools rows: Bank # slots, MIDI settings and MIDIStopRcv hidden; the MIDI row shown')
 
 
@@ -451,7 +452,7 @@ del button[:]
 check(page_rows(0x17)==(1,0,[(0x28c,2),(0x28d,3),(0x28e,6)]),'scene page rows: Scene 2, Save to 3, Bank # 6')
 check(button==[('label','Select'),('rect',(226,182,93,38))] and u32(u,EDIT+0x888+0x14)==0x2a0,'scene page: bottom button labelled "Select" at the right (id 0x2a0)')
 call(u,0x8120264,SETTINGS,0x28b,1);call(u,0x8120264,SETTINGS,0x28f,3)
-check(page_rows(0x1b)[2]==[(0x28b,1),(0x28f,3),(0x117,1)],'MIDI page rows: Bank CC, PC Ch, MIDIStopRcv (stock default on)')
+check(page_rows(0x1b)[2]==[(0x28b,1),(0x28f,3),(0x117,1),(0x292,0),(0x293,1),(0x294,0)],'MIDI page rows: Bank CC, PC Ch, MIDIStopRcv (stock default on), MIDI Out, Map CC Sync (USB), Clock Src')
 call(u,0x8120264,SETTINGS,0x28b,0);call(u,0x8120264,SETTINGS,0x28f,0)
 built=[];stub(u,0x8121cf4,lambda u:(built.append(struct.unpack('<H',u.mem_read(u.reg_read(UC_ARM_REG_R1),2))[0]),u.reg_write(UC_ARM_REG_R0,7)))
 del button[:]

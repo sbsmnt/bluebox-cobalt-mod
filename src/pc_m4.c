@@ -29,7 +29,10 @@ static void sc_boot(void);
                          filters both Bank Select and Program Change */
 #define PC_BANK_CH 0x290u /* s3/s3.1 "Bank Ch": unused since s3.2, kept so settings.tml still parses */
 #define PC_MIDI_ROW 0x291u /* Tools row "MIDI Settings": a tap, or B with the row selected, opens the MIDI page */
-#define PC_LAST_TAG 0x291u
+#define PC_DIN_OUT 0x292u /* m3 MIDI page "DIN Out" (key dinout): 0 Default, 1 USB Thru, 2 All Thru */
+#define PC_CC_SYNC 0x293u /* m8 MIDI page "Map CC Sync" (key ccsync, was m3 dinsync): 0 Off, 1 USB, 2 USB+MIDI Out, 3 MIDI Out */
+#define PC_CLK_SRC 0x294u /* m6 MIDI page "Clock Src" (key clksrc): 0 MIDI In first, 1 USB first */
+#define PC_LAST_TAG 0x294u
 #define PC_CELL_SCENES 0x17u /* edit page (B page) cells of our own */
 #define PC_CELL_MIDI 0x1bu
 #define PC_PAGE_MAIN 8u
@@ -163,6 +166,12 @@ void pc_defs_hook(void *table,unsigned id,unsigned type,const char *label,int mi
     def_enum(table,PC_CH,"PC Ch:",channels,18,"scenech");
     def_enum(table,PC_BANK_CH,"Bank Ch:",channels,18,"bankch");
     def_enum(table,PC_MIDI_ROW,"MIDI Settings",midi_open,1,"midimenu"); /* one value: turning does nothing */
+    static const char *const din_out[3]={"Default","USB Thru","All Thru"};
+    static const char *const cc_sync[4]={"Off","USB","USB+MIDI Out","MIDI Out"};
+    def_enum(table,PC_DIN_OUT,"MIDI Out:",din_out,3,"dinout");
+    def_enum(table,PC_CC_SYNC,"Map CC Sync:",cc_sync,4,"ccsync");
+    static const char *const clk_src[2]={"MIDI In","USB"};
+    def_enum(table,PC_CLK_SRC,"Clock Src:",clk_src,2,"clksrc");
     sc_boot(); /* runs once per boot, before the main loop */
 }
 /* settings.tml defaults: the reader only fills tags present here. */
@@ -173,6 +182,9 @@ void pc_settings_defaults(void *set,unsigned id,int value) {
     STOCK_ADD(set,PC_CH,0);        /* All */
     STOCK_ADD(set,PC_BANK_CH,0);   /* unused */
     STOCK_ADD(set,PC_MIDI_ROW,0);  /* Tools row; a tap opens the MIDI page */
+    STOCK_ADD(set,PC_DIN_OUT,0);   /* MIDI page: Default */
+    STOCK_ADD(set,PC_CC_SYNC,1);   /* MIDI page: USB */
+    STOCK_ADD(set,PC_CLK_SRC,0);   /* MIDI page: MIDI In first */
 }
 
 /* MIDI poll (TIM4 IRQ) at 0x0810341a: r0=status, r4=message (data1 at +1).
@@ -276,6 +288,11 @@ static void pc_quicksave(uint32_t now);
 static void pc_autosave(int busy);
 static void pc_band_refresh(uint32_t now);
 static void pc_list_scroll(uint32_t now);
+static void mo_main(uint32_t now);
+#define MO_TO_USB 1u /* dump targets */
+#define MO_TO_DIN 2u
+static void mo_request(uint32_t now,uint32_t delay,unsigned to);
+static char *mo_message(char *d,unsigned n);
 static int pc_channel_ok(unsigned tag,uint32_t msg) {
     unsigned v=(unsigned)fw_get(PC_SETTINGS,tag);
     return v==0u || (v>=2u && ((msg>>8)&0xfu)==v-2u);
@@ -339,6 +356,7 @@ void pc_main(void *inputs) {
     pc_autosave(PC_RECORDING || pc_loading() || t->phase || (s->want&PC_MSG));
     pc_band_refresh(now);
     pc_list_scroll(now);
+    mo_main(now);
 }
 /* Load event 0x18 then shows MIXER (0x08125e2a). After a PC load, show the
  * page that was current instead (keyboard 0x0a / keypad 0x1e overlays excepted). */
@@ -350,7 +368,7 @@ void pc_after_load(void *session,unsigned page,unsigned a,unsigned b) {
 }
 /* Tools (settings) panel lists every settings tag (0x08121e82): keep the PC slots out. */
 void pc_tools_append(void *list,unsigned id,int value) {
-    if(id>=PC_TAG0 && id<PC_MIDI_ROW)return; /* Bank # slots and the MIDI page settings */
+    if(id>=PC_TAG0 && id<=PC_LAST_TAG && id!=PC_MIDI_ROW)return; /* Bank # slots and the MIDI page settings */
     if(id==0x117u)return; /* MIDIStopRcv: moved to the MIDI page */
     ((void (*)(void *,unsigned,int))0x08138547u)(list,id,value);
 }
@@ -379,7 +397,7 @@ static void sc_clear(void);
 enum {F_SEL_SCENE,F_SEL_SAVE,F_SEL_BANK,F_BANK_HASH,F_PAGE,F_ABTN,F_HELD,F_DONE,F_TOAST,F_TOAST_UNTIL,
       F_AUTOSAVE,F_BAND,F_REDRAWN,F_SCROLL_KEY,F_SCROLL_AT,F_SCROLL_OFF};
 #define PC_TOAST(kind,n) (((kind)<<8)|(n))
-enum {T_RECALL=1,T_EMPTY,T_SAVED,T_NOSLOTS,T_BANK,T_BANK_CLEAR,T_BANK_USED};
+enum {T_RECALL=1,T_EMPTY,T_SAVED,T_NOSLOTS,T_BANK,T_BANK_CLEAR,T_BANK_USED,T_MOUT,T_CLOCK};
 static void pc_toast(unsigned kind,unsigned n) {
     uint32_t *t=sc_field(F_TOAST),*u=sc_field(F_TOAST_UNTIL);
     if(t && u){*t=PC_TOAST(kind,n);*u=PC_UI_NOW+1500u;}
@@ -451,7 +469,7 @@ int pc_page_rows(void *session,uint16_t *cell,void *list) {
         return 1;
     }
     if(*cell==PC_CELL_MIDI){
-        static const uint16_t ids[]={PC_BANK_CC,PC_CH,0x117};
+        static const uint16_t ids[]={PC_BANK_CC,PC_CH,0x117,PC_DIN_OUT,PC_CC_SYNC,PC_CLK_SRC};
         *(uint32_t *)list=0;
         for(unsigned i=0;i<sizeof ids/sizeof ids[0];i++)append(list,ids[i],fw_get(PC_SETTINGS,ids[i]));
         return 1;
@@ -670,7 +688,7 @@ static const struct pc_glyph pc_font[]={
  {'.',{0,0,0,0,0,12,12}},{',',{0,0,0,0,12,4,8}},{'(',{2,4,8,8,8,4,2}},
  {')',{8,4,2,2,2,4,8}},{'!',{4,4,4,4,4,0,4}},{'&',{12,18,20,8,21,18,13}},
  {'\'',{4,4,8,0,0,0,0}},{'+',{0,4,4,31,4,4,0}},{'#',{10,10,31,10,31,10,10}},
- {'/',{1,1,2,4,8,16,16}},{'?',{14,17,1,2,4,0,4}},
+ {'/',{1,1,2,4,8,16,16}},{'>',{8,4,2,1,2,4,8}},{'?',{14,17,1,2,4,0,4}},
  {'a',{0,0,14,1,15,17,15}},{'b',{16,16,22,25,17,17,30}},{'c',{0,0,14,16,16,17,14}},
  {'d',{1,1,13,19,17,17,15}},{'e',{0,0,14,17,31,16,14}},{'f',{6,9,8,28,8,8,8}},
  {'g',{0,0,15,17,17,17,15,1,14}},{'h',{16,16,22,25,17,17,17}},{'i',{4,0,12,4,4,4,14}},
@@ -736,6 +754,8 @@ static int pc_message(char *out,unsigned *fill) {
     case T_BANK: d=pc_num(pc_cat(d,"BANK "),n); break;
     case T_BANK_CLEAR: d=pc_cat(d,"BANK CLEARED"); break;
     case T_BANK_USED: d=pc_cat(pc_num(pc_cat(d,"BANK "),n)," IN USE"); break;
+    case T_MOUT: d=mo_message(d,n); break;
+    case T_CLOCK: d=pc_cat(d,n ? "CLOCK SRC: USB-B > USB-A > MIDI IN" : "CLOCK SRC: MIDI IN > USB-B > USB-A"); break;
     default: return 0;
     }
     return 1;
@@ -752,7 +772,7 @@ static int pc_scene_page_shown(void) {
  * when it fits (17 characters), else 1x. */
 #define PC_NAME_Y 24u
 void pc_present(void *display,int layer,int a2,int a3) {
-    char msg[40];unsigned fill;
+    char msg[48];unsigned fill; /* longest: "CLOCK SRC: MIDI IN > USB-B > USB-A" */
     int band=layer==1 && sc_bank() && pc_message(msg,&fill);
     const char *name=sc_bank() && pc_scene_page_shown() ? sc_name() : 0;
     if(band || (name && *name)){
@@ -867,6 +887,17 @@ struct sc_bank {
     char name[32];
     /* s3.6: PROJ list scrolling of the selected row */
     uint32_t scroll_key,scroll_at,scroll_off;
+    /* m1/m2: USB MIDI feedback (mo_main) */
+    uint32_t mo_attached,mo_loading,mo_pending,mo_at,mo_flip,mo_mark,mo_count;
+    uint32_t mo_dumping,mo_cursor,mo_busy_since;
+    /* m3: DIN Out mode (copy of the setting for the TIM4 IRQ), dump targets */
+    uint32_t mo_din,mo_to;
+    /* m5: clock owner (mo_next, TIM4 IRQ): input rank (0 none), its last tick */
+    uint32_t mo_clk_src,mo_clk_at;
+    /* m6: copy of the Clock Src setting (1 = USB inputs outrank MIDI in) */
+    uint32_t mo_clk_usb;
+    /* m7: Clock Src value last seen + 1 (0 before the first look), for the band */
+    uint32_t mo_clk_seen;
 };
 struct sc_ptr {uint32_t magic;struct sc_bank *bank;};
 #define SC_PTR ((volatile struct sc_ptr *)0x38800fd0u)
@@ -927,6 +958,8 @@ static void sc_boot(void) {
     b->abtn=0;b->held_since=0;b->hold_done=0;b->toast=0;b->toast_until=0;
     b->autosave=0;b->band=0;b->redrawn=0;b->name[0]=0;
     b->scroll_key=0;b->scroll_at=0;b->scroll_off=0;
+    b->mo_attached=0;b->mo_loading=0;b->mo_pending=0;b->mo_at=0;b->mo_flip=0;b->mo_mark=0;b->mo_count=0;
+    b->mo_dumping=0;b->mo_cursor=0;b->mo_busy_since=0;b->mo_din=0;b->mo_to=0;b->mo_clk_src=0;b->mo_clk_at=0;b->mo_clk_usb=0;b->mo_clk_seen=0;
     b->magic=SC_MAGIC;
     p->bank=b;p->magic=SC_MAGIC;
 }
@@ -1010,7 +1043,7 @@ static void sc_main(int busy) {
         int v=b->value[k][j];
         if(sc_get(cell,id)!=v){SC_KNOB(PC_SESSION,&cell,id,v,0);done++;}
     }
-    if(b->cursor>=b->n){b->current=b->recall;b->recall=0;}
+    if(b->cursor>=b->n){b->current=b->recall;b->recall=0;mo_request(PC_UI_NOW,50u,MO_TO_USB|MO_TO_DIN);}
 }
 
 static void *x_el(void *node) {return node ? (*(void *(**)(void *))*(void **)node)(node) : 0;}
@@ -1091,4 +1124,286 @@ void sc_read(void *doc) {
             b->current=(unsigned)cur;
     }
     X_DOC_FREE(doc);
+}
+
+/* m2: USB MIDI feedback (../EXPLORATION.md). After a project load completes,
+ * when a controller is plugged in and after a scene recall, every CC item of
+ * the project's MIDI map is sent to the USB controller with the current value
+ * of its parameter, so the controller shows what the bluebox has.
+ * Transport: the stock USB-host MIDI class opens an OUT pipe and its SOF
+ * handler (0x0810596c) sends MidiPort's TX slots (+0x6180), filled from the
+ * USB-out ring (+0x5070) by the flush at the end of the TIM4 MIDI pump; stock
+ * never writes that ring. Main loop = only producer, TIM4 IRQ = consumer.
+ * m9: the m2 Launchpad Pro MK3 profile (DAW Fader layout, values on cable 2)
+ * is gone; every device gets the same dump on cable 0.
+ * m3: the same dump on the DIN outputs (m8: MIDI page "Map CC Sync"), and the
+ * "DIN Out" thru modes (mo_next). */
+#define MO_PORT ((uint8_t *)0x30002c50u)
+#define MO_RING (MO_PORT+0x5070u) /* 256 MidiMsg {status,d1,d2,cable,length} */
+#define MO_RING_R (*(volatile uint32_t *)(MO_PORT+0x5570u))
+#define MO_RING_W (*(volatile uint32_t *)(MO_PORT+0x5574u))
+#define MO_SLOT_R (*(volatile uint32_t *)(MO_PORT+0x6d88u))
+#define MO_SLOT_W (*(volatile uint32_t *)(MO_PORT+0x6d8cu))
+/* USBH MIDI class (flash 0x0814d2c8, .data copy at 0x30000098): pData = the
+ * handle 0x3000a854 from Init until DeInit. Handle +3 OUT endpoint, +0x18 tx
+ * state (0 idle). phost 0x30009fe8: device descriptor at +0x326. */
+#define MO_CLASS_DATA (*(volatile uint32_t *)0x300000b4u)
+#define MO_HANDLE ((volatile uint8_t *)0x3000a854u)
+/* Project MIDI map (SessionMgr+0x5ef8): {items, count}, 20-byte items. */
+struct mo_item {uint16_t chan,msg,ctrl,param,cell,pad;int32_t range,offset;};
+struct mo_map {struct mo_item *items;uint32_t count;};
+#define MO_MAP ((volatile struct mo_map *)0x3001d2c8u)
+#define MO_DEFS (*(uint8_t *volatile *)0x3001eb30u) /* parameter definitions, 28 bytes per id */
+#define MO_LAST_ID 0x291u
+#define MO_SETTLE_MS 500u
+#define MO_TOAST_MS 3000u
+#define MO_STUCK_MS 1000u
+#define MO_BATCH 48u /* messages per TX slot (0x300 bytes = 192 packets max) */
+#define MO_RAW 0x80u /* MidiMsg byte 3: raw USB packet, CIN 4 + bits 4-5 (unused since m9) */
+enum {MO_STUCK=3,MO_DIN_STUCK=5}; /* toast codes (1, 2, 4 retired in m8) */
+static int mo_attached(void) {return MO_CLASS_DATA==(uint32_t)MO_HANDLE;}
+static unsigned mo_out_ep(void) {return mo_attached() ? MO_HANDLE[3]&0x0fu : 0u;}
+/* Stock converter (0x08103b9a) builds USB-MIDI packets for Note On/Off and
+ * F8/FA/FC only; at its type check (0x08103c3e) every channel message now gets
+ * CIN = status >> 4, system realtime keeps the stock test, and MO_RAW messages
+ * (ours: SysEx) give their own CIN. The cable number is MidiMsg byte 3 bits
+ * 0-3 (unused by stock, zero in stock messages), from the message copy at r4. */
+__attribute__((naked)) void mo_convert(void) {
+    __asm volatile(
+    "ldrb r2,[r4,#3]\n"
+    "tst r2,#0x80\n"
+    "beq 0f\n"
+    "ubfx r3,r2,#4,#2\n"
+    "adds r3,#4\n"
+    "b 3f\n"
+    "0: cmp r0,#0x80\n"
+    "blo 1f\n"
+    "cmp r0,#0xf0\n"
+    "bhs 2f\n"
+    "lsrs r3,r0,#4\n"
+    "b 3f\n"
+    "2: adds r0,#8\n"
+    "uxtb r0,r0\n"
+    "cmp r0,#4\n"
+    "bhi 1f\n"
+    "movs r3,#0x15\n"
+    "lsrs r3,r3,r0\n"
+    "tst r3,#1\n"
+    "beq 1f\n"
+    "movs r3,#15\n"
+    "3: ldrb r2,[r4,#3]\n"
+    "and r2,r2,#15\n"
+    "orr r3,r3,r2,lsl #4\n"
+    "b.w 0x08103bb8\n"
+    "1: b.w 0x08103bee\n");
+}
+/* Nothing is written while a batch is still in the ring, a TX slot or the USB
+ * transfer: the SOF handler can replace a slot that is still waiting, so one
+ * batch at a time. */
+static int mo_idle(void) {
+    return MO_RING_R==MO_RING_W && MO_SLOT_R==MO_SLOT_W && MO_HANDLE[0x18]==0u;
+}
+struct mo_batch {uint8_t m[MO_BATCH][4];unsigned n;};
+static void mo_add(struct mo_batch *q,unsigned a,unsigned b,unsigned c,unsigned cable) {
+    if(q->n>=MO_BATCH)return;
+    uint8_t *m=q->m[q->n++];
+    m[0]=(uint8_t)a;m[1]=(uint8_t)b;m[2]=(uint8_t)c;m[3]=(uint8_t)cable;
+}
+/* One batch with IRQs masked, so the next TIM4 flush puts it in one TX slot. */
+static void mo_push(const struct mo_batch *q) {
+    uint32_t primask;
+    __asm volatile("mrs %0,primask\ncpsid i":"=r"(primask)::"memory");
+    uint32_t w=MO_RING_W,room=256u-(w-MO_RING_R);
+    unsigned n=q->n<room ? q->n : room;
+    for(unsigned i=0;i<n;i++){
+        uint8_t *e=MO_RING+((w+i)&0xffu)*5u;
+        e[0]=q->m[i][0];e[1]=q->m[i][1];e[2]=q->m[i][2];e[3]=q->m[i][3];e[4]=3;
+    }
+    __asm volatile("dmb":::"memory");
+    MO_RING_W=w+n;
+    __asm volatile("msr primask,%0"::"r"(primask):"memory");
+}
+/* The M7 maps CC -> value as round(min + (max-min)*cc/127) with the
+ * parameter's definition range (0x0804f2d2; enums 0..count-1, 0x080555e8);
+ * this is the inverse. Toggles (0..1) give 0 / 127. */
+static int mo_cc(const struct mo_item *it,unsigned *cc) {
+    if(it->msg!=0xb0u || it->chan>15u || it->ctrl>127u || it->param>MO_LAST_ID)return 0;
+    uint8_t *t=sc_table(it->cell),*defs=MO_DEFS;
+    if(!t || !pc_ram((uint32_t)defs,(MO_LAST_ID+1u)*28u))return 0;
+    const uint8_t *d=defs+it->param*28u;
+    if(!*(const uint16_t *)d)return 0;
+    int lo=*(const int32_t *)(d+0x10),hi=d[2]==5u || d[2]==6u ? *(const int32_t *)(d+0x0c)-1 : *(const int32_t *)(d+0x14);
+    if(hi<=lo)return 0;
+    int v=fw_get(t,it->param);
+    if(v<lo)v=lo;
+    if(v>hi)v=hi;
+    *cc=(unsigned)((float)(v-lo)*127.0f/(float)(hi-lo)+0.5f);
+    return 1;
+}
+static void mo_request(uint32_t now,uint32_t delay,unsigned to) {
+    struct sc_bank *b=sc_bank();
+    if(b){b->mo_pending|=to;b->mo_at=now+delay;}
+}
+static void mo_toast(unsigned n) {
+    uint32_t *u=sc_field(F_TOAST_UNTIL);
+    pc_toast(T_MOUT,n);
+    if(u)*u=PC_UI_NOW+MO_TOAST_MS;
+}
+/* m3: DIN out. MidiPort has two serial outputs (USART6 / USART2, 31250 baud),
+ * each a queue of 4 slots x 0x804 bytes (256 MidiMsg + count at +0x500); the
+ * writer appends to slot w (+0x2010), the TIM4 flush closes that slot and starts
+ * sending slot r (+0x2014). Stock (M7 notes, clock out) sends to both. Neither
+ * index has a full check, so we only write while at most 2 slots wait. */
+#define MO_SERIAL(i) (MO_PORT+0x630u+(i)*0x2018u)
+#define MO_SERIAL_ADD ((void (*)(void *,const void *))0x08104481u)
+#define MO_DIN_BATCH 16u /* 48 bytes, about 15 ms on the wire */
+static uint32_t mo_q_w(const uint8_t *q) {return *(volatile const uint32_t *)(q+0x2010u);}
+static uint32_t mo_q_r(const uint8_t *q) {return *(volatile const uint32_t *)(q+0x2014u);}
+static uint32_t mo_q_open(const uint8_t *q) {return *(volatile const uint32_t *)(q+(mo_q_w(q)&3u)*0x804u+0x500u);}
+static int mo_q_room(const uint8_t *q,unsigned n) {return mo_q_w(q)-mo_q_r(q)<=2u && mo_q_open(q)+n<=200u;}
+static int mo_din_idle(void) {
+    for(unsigned i=0;i<2u;i++){const uint8_t *q=MO_SERIAL(i);if(mo_q_w(q)!=mo_q_r(q) || mo_q_open(q))return 0;}
+    return 1;
+}
+static void mo_din_push(const struct mo_batch *d) {
+    uint32_t primask;
+    __asm volatile("mrs %0,primask\ncpsid i":"=r"(primask)::"memory");
+    for(unsigned i=0;i<2u;i++){
+        uint8_t *q=MO_SERIAL(i);
+        if(!mo_q_room(q,d->n))continue;
+        for(unsigned k=0;k<d->n;k++){
+            uint8_t m[5]={d->m[k][0],d->m[k][1],d->m[k][2],0,3};
+            MO_SERIAL_ADD(q,m);
+        }
+    }
+    __asm volatile("msr primask,%0"::"r"(primask):"memory");
+}
+/* DIN Out thru. Replaces the stock input merger 0x08103c62 (called by the TIM4
+ * MIDI poll at 0x081033c0 / 0x0810343a) with the same sources in the same
+ * order: serial parsers +0x000 / +0x210 (src 0), parser +0x420 (src 1, not fed
+ * by stock), USB host ring +0x4660 and M7 ring +0x4b68 (USB from the computer)
+ * (src 1). Each message it returns is also queued on both serial outputs:
+ * USB Thru for the two USB rings, All Thru for every source, except clock,
+ * start/continue/stop and song position. Runs in the IRQ:
+ * the scene pointer is read without touching RCC/PWR (sc_bank does). */
+#define MO_PARSE ((int (*)(void *,uint8_t *))0x0810329fu)
+#define MO_BUMP ((void (*)(volatile uint32_t *))0x08100b19u)
+static int mo_take(uint8_t *ring,volatile uint32_t *idx,uint8_t *msg) {
+    if(idx[0]==idx[1])return 0;
+    const uint8_t *e=ring+(idx[0]&0xffu)*5u;
+    for(unsigned i=0;i<5u;i++)msg[i]=e[i];
+    MO_BUMP(idx);
+    return 1;
+}
+static int mo_clock(unsigned status) {return status==0xf2u || status==0xf8u || (status>=0xfau && status<=0xfcu);}
+static struct sc_bank *mo_irq_bank(void) {
+    volatile struct sc_ptr *p=SC_PTR;
+    struct sc_bank *b=p->magic==SC_MAGIC ? p->bank : 0;
+    return b && pc_ram((uint32_t)b,sizeof *b) && b->magic==SC_MAGIC ? b : 0;
+}
+static void mo_thru(struct sc_bank *b,const uint8_t *msg,int usb) {
+    unsigned mode=b->mo_din,len=msg[4];
+    if(!(mode==2u || (mode==1u && usb)) || !len || len>3u)return;
+    /* m4: clock and transport stay the bluebox's own (Clock Out), never thru'd. */
+    if(mo_clock(msg[0]))return;
+    for(unsigned i=0;i<2u;i++){uint8_t *q=MO_SERIAL(i);if(mo_q_room(q,1))MO_SERIAL_ADD(q,msg);}
+}
+/* m5: stock follows clock from every input at once, so two clocked inputs (the
+ * OXI on MIDI in and a Launchpad on USB, both at 120) double the tempo. One
+ * input owns clock and transport: MIDI in before the computer (USB device)
+ * before the USB host port, or with Clock Src USB (m6) the computer, the USB
+ * host port, then MIDI in. A higher one takes over at once, a lower one only
+ * after the owner has been silent for MO_CLK_MS; the others' clock and
+ * transport are dropped. */
+#define MO_CLK_MS 300u
+static unsigned mo_clk_rank(const struct sc_bank *b,unsigned from) {
+    if(b->mo_clk_usb)return from==4u ? 1u : from==3u ? 2u : 3u;
+    return from<=2u ? 1u : from==4u ? 2u : 3u;
+}
+static int mo_clock_ok(struct sc_bank *b,unsigned from) {
+    uint32_t now=PC_UI_NOW;
+    unsigned rank=mo_clk_rank(b,from);
+    if(!b->mo_clk_src || now-b->mo_clk_at>MO_CLK_MS || rank<b->mo_clk_src)b->mo_clk_src=rank;
+    if(b->mo_clk_src!=rank)return 0;
+    b->mo_clk_at=now;
+    return 1;
+}
+int mo_next(uint8_t *port,uint8_t *msg,uint8_t *src) {
+    struct sc_bank *b=mo_irq_bank();
+    for(;;){
+        unsigned from;
+        *src=0;
+        if(MO_PARSE(port,msg))from=0;
+        else if(MO_PARSE(port+0x210u,msg))from=1;
+        else{
+            *src=1;
+            if(MO_PARSE(port+0x420u,msg))from=2;
+            else if(mo_take(port+0x4660u,(volatile uint32_t *)(port+0x4b60u),msg))from=3;
+            else if(mo_take(port+0x4b68u,(volatile uint32_t *)(port+0x5068u),msg))from=4;
+            else return 0;
+        }
+        if(!b)return 1;
+        if(msg[4] && mo_clock(msg[0]) && !mo_clock_ok(b,from))continue;
+        mo_thru(b,msg,from>=3u);
+        return 1;
+    }
+}
+/* Next batch of the dump: map items from the cursor until a batch is full (USB: MO_BATCH messages,
+ * DIN: MO_DIN_BATCH). */
+static void mo_step(struct sc_bank *b,uint32_t now) {
+    int usb=(b->mo_to&MO_TO_USB)!=0u,din=(b->mo_to&MO_TO_DIN)!=0u;
+    int usb_busy=usb && !mo_idle(),din_busy=din && !mo_din_idle();
+    if(usb_busy || din_busy){
+        if(now-b->mo_busy_since>=MO_STUCK_MS){b->mo_dumping=0;mo_toast(usb_busy ? MO_STUCK : MO_DIN_STUCK);}
+        return;
+    }
+    b->mo_busy_since=now;
+    struct mo_batch q,d;q.n=0;d.n=0;
+    volatile struct mo_map *map=MO_MAP;
+    struct mo_item *items=map->items;
+    unsigned count=map->count<=128u && pc_ram((uint32_t)items,128u*sizeof *items) ? map->count : 0u;
+    while(b->mo_cursor<count && q.n<MO_BATCH && (!din || d.n<MO_DIN_BATCH)){
+        unsigned cc;
+        const struct mo_item *it=&items[b->mo_cursor++];
+        if(!mo_cc(it,&cc))continue;
+        if(usb)mo_add(&q,0xb0u|it->chan,it->ctrl,cc,0);
+        if(din)mo_add(&d,0xb0u|it->chan,it->ctrl,cc,0);
+    }
+    if(q.n)mo_push(&q);
+    if(d.n)mo_din_push(&d);
+    if(b->mo_cursor>=count)b->mo_dumping=0; /* m8: no band when it completes */
+}
+static void mo_main(uint32_t now) {
+    struct sc_bank *b=sc_bank();
+    if(!b)return;
+    b->mo_din=(uint32_t)fw_get(PC_SETTINGS,PC_DIN_OUT); /* read by mo_thru in the IRQ */
+    b->mo_clk_usb=fw_get(PC_SETTINGS,PC_CLK_SRC)==1; /* read by mo_clock_ok in the IRQ */
+    /* m7: a change of Clock Src shows the input order on the band. */
+    if(b->mo_clk_seen && b->mo_clk_seen!=b->mo_clk_usb+1u){
+        uint32_t *u=sc_field(F_TOAST_UNTIL);
+        pc_toast(T_CLOCK,b->mo_clk_usb);
+        if(u)*u=PC_UI_NOW+MO_TOAST_MS;
+    }
+    b->mo_clk_seen=b->mo_clk_usb+1u;
+    uint32_t att=(uint32_t)mo_attached(),ld=(uint32_t)pc_loading();
+    if(att && !b->mo_attached)mo_request(now,MO_SETTLE_MS,MO_TO_USB);
+    if(!att)b->mo_to&=~MO_TO_USB;
+    if(b->mo_loading && !ld)mo_request(now,MO_SETTLE_MS,MO_TO_USB|MO_TO_DIN);
+    b->mo_attached=att;b->mo_loading=ld;
+    if(b->mo_pending && !ld && (int32_t)(now-b->mo_at)>=0){
+        unsigned want=b->mo_pending,to=0;
+        b->mo_pending=0;
+        /* USB only while a device with an OUT endpoint is attached: the TX slot
+         * ring has no full check and is drained only by the attached class. */
+        unsigned sync=(unsigned)fw_get(PC_SETTINGS,PC_CC_SYNC);
+        if((want&MO_TO_USB) && att && (sync==1u || sync==2u) && mo_out_ep())to|=MO_TO_USB;
+        if((want&MO_TO_DIN) && (sync==2u || sync==3u))to|=MO_TO_DIN;
+        if(to){b->mo_to=to;b->mo_dumping=1;b->mo_cursor=0;b->mo_busy_since=now;}
+    }
+    if(!b->mo_to)b->mo_dumping=0;
+    if(b->mo_dumping && !ld)mo_step(b,now);
+}
+/* m8: the band only reports a dump that could not be sent. */
+static char *mo_message(char *d,unsigned n) {
+    return pc_cat(d,n==MO_STUCK ? "MAP CC SYNC: USB OUT STUCK" : "MAP CC SYNC: MIDI OUT STUCK");
 }

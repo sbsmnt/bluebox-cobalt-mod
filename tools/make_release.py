@@ -156,18 +156,21 @@ add('PC map MIDI program change capture',0x0810341a,bytes.fromhex('c028cdd1b2e7'
 add('PC map main-loop dispatch',0x081269d8,branch(0x081269d8,0x08100730),branch(0x081269d8,PC['pc_main']))
 add('PC map settings defaults',0x08120aae,branch(0x08120aae,0x0812028e),branch(0x08120aae,PC['pc_settings_defaults']))
 add('PC map settings capacity 68 to 144',0x08120a56,bytes.fromhex('4421'),bytes.fromhex('9021'))
-for at,old,new in ((0x08134cce,'43f63410','44f2f870'),(0x08134ce0,'43f63412','44f2f872')):  # 0x292 records (Bank # slots + scene/MIDI tags)
+for at,old,new in ((0x08134cce,'43f63410','44f64c00'),(0x08134ce0,'43f63412','44f64e02')):  # 0x295 records (Bank # slots + scene/MIDI tags + DIN Out/Sync + Clock Src)
  add('PC map name table size '+hex(at),at,bytes.fromhex(old),bytes.fromhex(new))
-add('PC map name table bound 0x08134c06',0x08134c06,bytes.fromhex('40f20a23'),bytes.fromhex('40f29123'))
+add('PC map name table bound 0x08134c06',0x08134c06,bytes.fromhex('40f20a23'),bytes.fromhex('40f29423'))
 for at in (0x0813600c,0x0813603a,0x0813606c,0x0813609a,0x081360ca,0x081360fa,0x0813613c):
- add('PC map name table bound '+hex(at),at,bytes.fromhex('40f20a22'),bytes.fromhex('40f29122'))
-add('PC map name lookup end',0x08136180,bytes.fromhex('04f564553435'),bytes.fromhex('04f58e45f835'))  # +0x47f8
+ add('PC map name table bound '+hex(at),at,bytes.fromhex('40f20a22'),bytes.fromhex('40f29422'))
+add('PC map name lookup end',0x08136180,bytes.fromhex('04f564553435'),bytes.fromhex('04f590454c35'))  # +0x484c
 add('PC map rename follows name',0x0813e822,branch(0x0813e822,0x08122468),branch(0x0813e822,PC['pc_rename']))
 add('PC map delete clears slot',0x0813e5c0,branch(0x0813e5c0,0x08122f50),branch(0x0813e5c0,PC['pc_delete']))
 add('PC map Load page after PC',0x08125e2a,branch(0x08125e2a,0x08122508),branch(0x08125e2a,PC['pc_after_load']))
 add('PC map Tools hides PC slots',0x08121e82,branch(0x08121e82,0x08138546),branch(0x08121e82,PC['pc_tools_append']))
 add('PC map MIDI realtime timestamp',0x081033e0,bytes.fromhex('0023cdf81130'),bw(0x081033e0,PC['pc_midi_realtime'])+bytes.fromhex('00bf'))
 add('Scenes Bank Select capture',0x08103378,bytes.fromhex('b02804d0'),bw(0x08103378,PC['pc_midi_cc']))
+add('MIDI out: USB converter passes channel messages',0x08103c3e,bytes.fromhex('9028b9d0'),bw(0x08103c3e,PC['mo_convert']))
+for at in (0x081033c0,0x0810343a):  # input merger 0x08103c62: DIN Out thru modes
+ add('MIDI out: DIN thru input merger '+hex(at),at,branch(at,0x08103c62),branch(at,PC['mo_next']))
 add('Scenes project writer',0x0812109e,branch(0x0812109e,0x08106c92),branch(0x0812109e,PC['sc_write_hook']))
 def beqw(at,target):
  off=(target&~1)-(at+4)
@@ -189,7 +192,7 @@ add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x0
 add('Tools MIDI row has no value',0x0814ba3c,struct.pack('<I',0x08131211),struct.pack('<I',PC['pc_tools_event']|1))
 add('Row list tap on the MIDI row opens the MIDI page',0x0814cac4,struct.pack('<I',0x0813d89d),struct.pack('<I',PC['pc_list_event']|1))
 add('Scenes project reader',0x08121416,branch(0x08121416,0x081079c0),branch(0x08121416,PC['sc_read']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.1.0-alpha.3',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.1.0-midi.m9',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['pcm4']=PC
 fields=[
@@ -314,5 +317,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt v1.1.0-alpha.3 patcher. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt v1.1.0-midi.m9 patcher. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code')))
