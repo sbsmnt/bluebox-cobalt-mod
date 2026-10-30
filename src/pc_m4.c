@@ -1304,7 +1304,7 @@ static struct sc_bank *mo_irq_bank(void) {
 static void mo_thru(struct sc_bank *b,const uint8_t *msg,int usb) {
     unsigned mode=b->mo_din,len=msg[4];
     if(!(mode==2u || (mode==1u && usb)) || !len || len>3u)return;
-    /* m4: clock and transport stay the bluebox's own (Clock Out), never thru'd. */
+    /* m4: clock and transport stay the bluebox's own, never thru'd. */
     if(mo_clock(msg[0]))return;
     for(unsigned i=0;i<2u;i++){uint8_t *q=MO_SERIAL(i);if(mo_q_room(q,1))MO_SERIAL_ADD(q,msg);}
 }

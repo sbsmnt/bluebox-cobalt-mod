@@ -268,7 +268,7 @@ Also in TOOLS > **MIDI Settings**:
   output. `Default` passes nothing else (stock). `USB Thru` passes the
   messages (notes, CC, …) coming from USB (computer on USB-B, controller on
   USB-A). `All Thru` also passes MIDI in. Channels are kept. Clock and transport are never
-  passed on, so a clocked setup never sees a second clock; use Clock Out.
+  passed on, so a clocked setup never sees a second clock.
 - **Map CC Sync:** where the values of the mapped CCs are sent, so a
   controller with LED rings or motor faders (OXI E16, MIDI Fighter Twister,
   Launch Control XL 3, Roto-Control, Faderfox EC4, …) shows them:
