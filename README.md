@@ -1,11 +1,11 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.1.0-alpha.4 (alpha) - for bluebox desktop firmware 1.5.2**
+**v1.1.0 - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
 modes, a new reverb, a per-track noise gate, master saturation, compressor
-meters, an overdub recording fix, mixer scenes with MIDI recall and custom
-colour themes. The patcher runs locally: it takes your copy of the official
+meters, an overdub recording fix, mixer scenes with MIDI recall, MIDI
+controller sync and custom colour themes. The patcher runs locally: it takes your copy of the official
 1.5.2 firmware and writes a new `BLUEBOX.BIN`. No firmware is distributed
 here.
 
@@ -14,7 +14,7 @@ here.
 > Cobalt is not made, endorsed or supported by 1010music. Keep a copy of your
 > working firmware and back up your projects before installing.
 
-## New in v1.1 (alpha)
+## New in v1.1
 
 - **Scenes:** up to 16 snapshots per project of the mixer, master and aux
   buses, FX1/FX2 (including the effect type) and BPM. Recall is instant,
@@ -36,10 +36,7 @@ here.
 - **MIXER sends with OUT3:** buttons read `O 2`, `O 3` and `NG` (gate) so
   all seven fit.
 
-Details in [Scenes (alpha)](#scenes-alpha), [MIDI (alpha)](#midi-alpha) and the
-[CHANGELOG](CHANGELOG.md).
-The alpha's patcher is `patch_bluebox.html` on this branch; the hosted page
-still serves v1.0.0.
+Details in [Scenes](#scenes), [MIDI](#midi) and the [CHANGELOG](CHANGELOG.md).
 
 ## Install
 
@@ -235,7 +232,7 @@ Stock 1.5.2 can stop with an error while overdubbing long takes because the
 storage task falls behind. Cobalt converts recorded and played-back audio in
 word-sized bursts instead of byte by byte. The audio is bit-identical.
 
-### Scenes (alpha)
+### Scenes
 
 A scene is a snapshot of the mixer (track level, pregain, pan, sends, mute,
 solo, compressor, EQ and gate), the master and aux buses, every FX1/FX2
@@ -260,7 +257,7 @@ that differ, without loading anything, so playback and recording carry on.
 - **PROJ list:** the loaded project is marked with `* `, and a long selected
   name scrolls.
 
-### MIDI (alpha)
+### MIDI
 
 Also in TOOLS > **MIDI Settings**:
 
