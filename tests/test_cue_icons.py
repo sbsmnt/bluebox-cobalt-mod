@@ -7,7 +7,7 @@ from gate_ui_fixture import *
 import firmware_harness as H
 C4=M['symbols']['cue4'];C7=M['symbols']['cue7']
 STATE=0x38800660;FAKEAPP=0x24070000;DESC=0x24071000;FB=0xc1000000
-TILE0=0x14d0;STRIDE=0xd98;VT=0x814af64
+TILE0=0x14d0;STRIP0=0xbe0;STRIDE=0xd98;VT=0x814af64
 ICON=[0x07c,0x082,0x101,0x101,0x183,0x183,0x183]
 FILL=u32(u,0x814d230+5*4)&0xffffff;BG=u32(u,0x814d230+2*4)&0xffffff
 PAINT=0x123456   # what the native UI "drew" before the overlay
@@ -52,6 +52,8 @@ check(FILL==0x09d7f5 and BG==0x141414,'icon colours come from the theme palette 
 
 for name,page in (('MIXER',P),('TRACK',T)):
  tl=tiles(page);show(page)
+ # The page layout shows the strips of the 8 tracks and the master.
+ for ch in range(13):u.mem_write(page+STRIP0+ch*STRIDE+0x30,bytes([0 if ch<8 or ch==12 else 1]))
  check(sorted(c for c in tl if c<12)==list(range(8)) and 12 in tl,name+': eight visible track tiles (8-track mode) and the master at page+0x14d0')
  masks(0);fb=present()
  check(changed(fb)==0 and presented,name+': no cue and all inputs set: nothing drawn, present chain continues')
@@ -63,6 +65,8 @@ for name,page in (('MIXER',P),('TRACK',T)):
   check(x<=x+w-12 and y+1>=y and y+10<=y+h,name+': track '+str(c+1)+' icon cell inside its tile')
  u.mem_write(page+TILE0+5*STRIDE+0x30,b'\1');fb=present()
  check(changed(fb)==CELL,name+': hidden tiles get nothing');u.mem_write(page+TILE0+5*STRIDE+0x30,b'\0')
+ u.mem_write(page+STRIP0+5*STRIDE+0x30,b'\1');fb=present()
+ check(changed(fb)==CELL,name+': tiles in a hidden strip get nothing');u.mem_write(page+STRIP0+5*STRIDE+0x30,b'\0')
  masks(1<<9,0xfff);fb=present()
  check(changed(fb)==0,name+': cue on a track without a tile draws nothing')
  masks(0,0xfff&~(1<<2));fb=present();x,y,w,h=tl[2]
@@ -73,6 +77,17 @@ for name,page in (('MIXER',P),('TRACK',T)):
  masks(1<<2,0xfff&~(1<<2));fb=present()
  body=all(px(fb,x+w-11+c,y+2+r)==(FILL if bit(r,c) else BG if any(bit(r+a,c+b) for a in (-1,0,1) for b in (-1,0,1)) else dimmed(x+w-11+c,y+2+r)) for r in range(-1,8) for c in range(-1,10))
  check(body,name+': a cued track without an input is greyed and still shows its icon')
+
+# EQ page with its real layout: normal view shows the strip, the full-screen
+# graph (second EQ press) hides every track strip, so no icon or greying.
+EQP=0xc0400000;call(u,0x8129d84,EQP)
+u.mem_write(0x24058008,struct.pack('<H2xi',0x113,8));u.mem_write(APP+0xe78+10,struct.pack('<H',2))
+show(EQP);tl=tiles(EQP)
+for full,want in ((0,True),(1,False),(0,True)):
+ u.mem_write(EQP+0xbcbc,bytes([full]));call(u,0x812a600,EQP)
+ masks(1<<3,0xfff&~(1<<6));fb=present()
+ drawn=icon_ok(fb,tl[3][0]+tl[3][2]-11,tl[3][1]+2) and changed(fb)>CELL
+ check(drawn==want and (want or changed(fb)==0),'EQ '+('full screen: no icons or greying over the graph' if full else 'normal view: icon and greying on the track strip'))
 
 # A page without the track strip is left alone; an old or missing state too.
 show(0x24060000);masks(1,0);check(changed(present())==0,'pages without track tiles get nothing')

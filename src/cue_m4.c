@@ -11,6 +11,9 @@
 #include "shared.h"
 #define APP_POINTER (*(volatile uint32_t *)0x3000d9fcu)
 #define TILE_VT 0x0814af64u
+/* Each track's strip block starts at page+0xbe0 and holds its tile at +0x8f0.
+ * Pages hide whole strips (e.g. EQ full screen) with the block's own flag. */
+#define STRIP0 0x0be0u
 #define TILE0 0x14d0u
 #define TILE_STRIDE 0xd98u
 #define CUE_MAGIC 0x43554534u
@@ -70,8 +73,8 @@ static void cue_draw(const uint8_t *d) {
     for(unsigned ch=0;ch<12u;ch++) {
         unsigned on=cued>>ch&1u,dim=!(inputs>>ch&1u);
         if(!on && !dim)continue;
-        uint8_t *t=(uint8_t *)(page+TILE0+ch*TILE_STRIDE);
-        if(*(uint32_t *)t!=TILE_VT || *(uint16_t *)(t+0x32)!=ch || t[0x30])continue;
+        uint8_t *t=(uint8_t *)(page+TILE0+ch*TILE_STRIDE),*strip=(uint8_t *)(page+STRIP0+ch*TILE_STRIDE);
+        if(*(uint32_t *)t!=TILE_VT || *(uint16_t *)(t+0x32)!=ch || t[0x30] || strip[0x30])continue;
         int x=*(int *)(t+4),bottom=*(int *)(t+8),tw=*(int *)(t+12),th=*(int *)(t+16);
         if(tw<14 || th<12 || x<0 || x>320-tw || bottom<0 || bottom>240-th)continue;
         /* Native rectangles have a bottom-left origin; the framebuffer is top-down. */
