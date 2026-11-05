@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Phones Src AUTO** (MAIN → B): the phones play the cue mix while any track
+  has its cue on or turned up, and the main mix otherwise, like PFL on a DJ
+  mixer. Works with CUE Style Fader and Toggle and both CUE Send settings;
+  stopped tracks and tracks without an input count when cued. Back to Main
+  0.1 s after the last cue goes off. CUE and MAIN are unchanged.
+- **Cue icons:** a headphone in the top-right corner of every cued track
+  header, in the theme's active button fill with a background outline.
+- **Unconfigured tracks:** tracks without an input are greyed out on the
+  track headers.
+
 ## v1.1.0
 
 Scenes and MIDI, for bluebox desktop firmware 1.5.2.

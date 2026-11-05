@@ -41,7 +41,8 @@ check(bl_target(patched,0x0804c50e)==s7['cpu_prof_end'],'desktop audio call redi
 # Scenes: the display call goes to pc_present (on-screen messages), which ends
 # by calling Cobalt's cpu_present.
 pcm4=M['symbols']['pcm4']
-check(bl_target(patched,0x08137496)==pcm4['pc_present'],'desktop display call redirects to the scenes overlay hook')
+cue4=M['symbols']['cue4']
+check(bl_target(patched,0x08137496)==cue4['cue_present'] and cue4['pc_present']==pcm4['pc_present'],'desktop display call runs the cue icons, then the scenes overlay hook')
 from capstone import *
 md=Cs(CS_ARCH_ARM,CS_MODE_THUMB|CS_MODE_MCLASS)
 pp=pcm4['pc_present']&~1

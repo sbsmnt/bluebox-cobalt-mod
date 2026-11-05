@@ -48,5 +48,14 @@ done
   -o build/gate7.elf src/gate_m7.c
 "$OBJCOPY" -O binary -j .cave build/gate7.elf build/gate7.bin
 "$NM" build/gate7.elf > build/gate7.symbols
+"$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
+  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
+  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 -T src/cue7.ld \
+  -o build/cue7.elf src/cue_m7.c
+"$OBJCOPY" -O binary -j .cave build/cue7.elf build/cue7.bin
+"$NM" build/cue7.elf > build/cue7.symbols
+"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0   -Wl,--defsym=pc_present=0x$(awk '$3=="pc_present"{print $1}' build/pcm4.symbols)   -Wl,--defsym=gate_ui_tick=0x$(awk '$3=="gate_ui_tick"{print $1}' build/cm4.symbols)   -T src/cue4.ld -o build/cue4.elf src/cue_m4.c
+"$OBJCOPY" -O binary -j .cave build/cue4.elf build/cue4.bin
+"$NM" build/cue4.elf > build/cue4.symbols
 rm -f build/gr7_main.o build/gr7_fast.o build/delay7_main.o build/delay7_fast.o
 python3 tools/make_release.py "$@"

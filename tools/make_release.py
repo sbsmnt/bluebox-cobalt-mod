@@ -32,7 +32,12 @@ if len(gr_code)>0x8000:raise ValueError('compressor code cave too large')
 gr_symbols={f[2]:int(f[0],16) for line in (ROOT/'build'/'gr7.symbols').read_text().splitlines() if len(f:=line.split())==3}
 add('M7 compressor telemetry code',0x080a0000,bytes(len(gr_code)),gr_code)
 add('compressor process pointer',0x0806a24c,struct.pack('<I',0x08042649),struct.pack('<I',gr_symbols['gr_process']|1))
-add('settings redraw check call',0x0813408e,branch(0x0813408e,0x08139586),branch(0x0813408e,symbols(4)['gate_ui_tick']))
+# Cue icons on the track headers (M4): present and redraw chains run first.
+cue4code=(ROOT/'build'/'cue4.bin').read_bytes()
+if len(cue4code)>0x4000:raise ValueError('cue icon code cave too large')
+cue4={f[2]:int(f[0],16) for line in (ROOT/'build'/'cue4.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('M4 cue icon code',0x080d8000,bytes(len(cue4code)),cue4code)
+add('settings redraw check call',0x0813408e,branch(0x0813408e,0x08139586),branch(0x0813408e,cue4['cue_ui_tick']))
 # Theme .data is copied from flash 0x0814d230 to SRAM 0x30000000 at startup.
 # The stock palette getter 0x08101064 indexes it by r1. Slot 4 is observed in
 # the selected-row draw path; slot 32 is the second pink theme accent.
@@ -108,6 +113,16 @@ add('MIXER construct sixth Gate button',0x081349dc,branch(0x081349dc,0x0812dadc)
 add('MIXER ignore Main gate edits',0x0814b7d8,struct.pack('<I',0x0812e755),struct.pack('<I',symbols(4)['gate_mix_event']|1))
 add('MIXER shared Gate edit commit',0x0814b7d4,struct.pack('<I',0x0812e469),struct.pack('<I',symbols(4)['gate_mix_local']|1))
 add('TRACK shared Gate edit commit',0x0814bb6c,struct.pack('<I',0x08132e39),struct.pack('<I',symbols(4)['gate_track_local']|1))
+# Phones Src AUTO: cue bus while a track has its cue on, otherwise Main;
+# the same cue and input masks feed the track header icons (cue_m4.c).
+cuecode=(ROOT/'build'/'cue7.bin').read_bytes()
+if len(cuecode)>0x8000:raise ValueError('cue code cave too large')
+cues={f[2]:int(f[0],16) for line in (ROOT/'build'/'cue7.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('M7 phones auto cue code',0x080d0000,bytes(len(cuecode)),cuecode)
+add('output node phones auto process pointer',0x0806aa00,struct.pack('<I',0x0804e21d),struct.pack('<I',cues['cue_out_process']|1))
+add('mixer node process pointer records the mixer',0x0806af38,struct.pack('<I',0x0804fbad),struct.pack('<I',cues['cue_mixer_process']|1))
+add('Phones Src three choices',0x081358dc,bytes.fromhex('0223'),bytes.fromhex('0323'))
+add('Phones Src CUE MAIN AUTO list',0x08135b28,struct.pack('<I',0x0814bf34),struct.pack('<I',cues['cue_phones_names']))
 add('MIXER sends Gate selector',0x0814b7f4,bytes(2),struct.pack('<H',0x1ae))
 for at in [0x0812e4c0,0x0812e4d0]:
  add('MIXER seventh button range '+hex(at),at,bytes.fromhex('0528' if at==0x0812e4c0 else '0529'),bytes.fromhex('0628' if at==0x0812e4c0 else '0629'))
@@ -185,7 +200,7 @@ add('New project clears the scenes',0x0813e8a2,branch(0x0813e8a2,0x08122e3c),bra
 add('First project (none on the card) clears the scenes',0x08125cfc,branch(0x08125cfc,0x08122e3c),branch(0x08125cfc,PC['pc_new_project']))
 add('Scene page Select button',0x0814ca40,struct.pack('<I',0x0813cfb9),struct.pack('<I',PC['pc_edit_event']|1))
 add('PROJ Save assigns the chosen Bank #',0x0813e4a8,branch(0x0813e4a8,0x081224d4),branch(0x0813e4a8,PC['pc_project_save']))
-add('Scenes on-screen feedback before Cobalt flip',0x08137496,branch(0x08137496,0x0810134c),branch(0x08137496,PC['pc_present']))
+add('Cue icons and Scenes feedback before Cobalt flip',0x08137496,branch(0x08137496,0x0810134c),branch(0x08137496,cue4['cue_present']))
 add('Scenes page cell on page 0x19',0x081227f8,branch(0x081227f8,0x0813c384),branch(0x081227f8,PC['pc_projset_post']))
 add('Scenes edit page rows',0x0813d20a,branch(0x0813d20a,0x08121cf4),branch(0x0813d20a,PC['pc_page_rows']))
 add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x08125e04,PC['pc_knob']))
@@ -297,6 +312,8 @@ manifest['accent']=dict(default='#9455fa',offsets=fields[0]['offsets'])
 manifest['symbols']['gr7']=gr_symbols
 manifest['symbols']['delay7']=ds
 manifest['symbols']['gate7']=ngs
+manifest['symbols']['cue7']=cues
+manifest['symbols']['cue4']=cue4
 manifest['meters_only_sha256']='76fb996aa76ecfa0d8234aca1210bf360e234a49653b8fe213c97f131deaa29f'
 manifest['cpu_only_sha256']='bc86a68620be4916c64220acb51bd04a6b2bb5c2d53517614588f58cc9b0fb9a'
 (ROOT/'patch_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
