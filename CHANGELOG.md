@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v1.2.0
+
+Phones AUTO cue, for bluebox desktop firmware 1.5.2. Contributed by
+[Milan Wulf](https://github.com/milanwulf) in
+[pull request #1](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/1).
 
 - **Phones Src AUTO** (MAIN → B): the phones play the cue mix while any track
   has its cue on or turned up, and the main mix otherwise, like PFL on a DJ
@@ -11,6 +15,7 @@
   header, in the theme's active button fill with a background outline.
 - **Unconfigured tracks:** tracks without an input are greyed out on the
   track headers.
+- TOOLS shows `Cblt 1.2`.
 
 ## v1.1.0
 

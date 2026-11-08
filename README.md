@@ -1,6 +1,6 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.1.0 - for bluebox desktop firmware 1.5.2**
+**v1.2.0 - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
 modes, a new reverb, a per-track noise gate, master saturation, compressor
@@ -13,6 +13,18 @@ here.
 
 > Cobalt is not made, endorsed or supported by 1010music. Keep a copy of your
 > working firmware and back up your projects before installing.
+
+## New in v1.2
+
+- **Phones Src AUTO:** MAIN → B → Phones Src has a third choice, AUTO. The
+  phones play the cue mix while any track is cued and the main mix
+  otherwise, like PFL on a DJ mixer.
+- **Cue icons:** a small headphone marks every cued track on the track
+  headers.
+- **Unconfigured tracks:** tracks with no input selected are greyed out on
+  the track headers.
+
+Thanks to [Milan Wulf](https://github.com/milanwulf) for this feature ([pull request #1](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/1)). Details in [Phones AUTO cue](#phones-auto-cue).
 
 ## New in v1.1
 
@@ -50,7 +62,7 @@ Details in [Scenes](#scenes), [MIDI](#midi) and the [CHANGELOG](CHANGELOG.md).
 3. Pick a theme preset or build your own, then **Verify and prepare
    download**.
 4. Install the new `BLUEBOX.BIN` with the usual SD-card procedure.
-5. Check that the middle TOOLS field shows **Cblt 1.0**. The official version
+5. Check that the middle TOOLS field shows **Cblt 1.2**. The official version
    field still shows 1.5.2.
 
 To go back, tick **Restore the original** and choose your Cobalt
@@ -206,6 +218,8 @@ playing or has an input, so a cued track that is stopped still gives you its
   unconfigured tracks stand out. Tracks with a recorded clip are not greyed.
 
 Both follow the track count, Single/Double Row and renamed tracks.
+
+Thanks to [Milan Wulf](https://github.com/milanwulf) for this feature ([pull request #1](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/1)).
 
 ### Master saturation
 
