@@ -5,7 +5,7 @@ name: Check and deploy patcher
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
   workflow_dispatch:
 

@@ -364,7 +364,8 @@ the theme presets load, and that `docs/index.html` matches
 DSP host tests. The emulator suite needs the original firmware, so run
 `tests/run_checks.py` locally before pushing.
 
-On `main`, the workflow then publishes `docs/` (the self-contained patcher
+Pull requests go to the `dev` branch; `main` only receives tested releases
+(see [CONTRIBUTING](CONTRIBUTING.md)). On `main`, the workflow then publishes `docs/` (the self-contained patcher
 page) to GitHub Pages at [https://sbsmnt.github.io/bluebox-cobalt-mod/](https://sbsmnt.github.io/bluebox-cobalt-mod/).
 Enable it once under **Settings → Pages → Build and
 deployment → Source: GitHub Actions**.
