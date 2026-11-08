@@ -186,6 +186,27 @@ steps when turned slowly and speeds up when spun. MIXER → Gate meters show
 the level the gate listens to on the Gate fader's scale, so the meter crosses
 the fader exactly when the gate opens.
 
+### Phones AUTO cue
+
+MAIN → B → **Phones Src** has a third choice, **AUTO**, next to CUE and MAIN.
+It works like PFL on a DJ mixer: the phones play the cue mix while any track
+has its cue on (CUE Style Toggle) or turned up (CUE Style Fader), and the
+main mix otherwise. Only the cue setting counts, not whether the track is
+playing or has an input, so a cued track that is stopped still gives you its
+(silent) cue. After the last cue goes off, the phones return to Main within
+0.1 s. CUE Send (Pre/Post Fader) works as before. CUE and MAIN are unchanged.
+
+**Track headers** on every page with the track strip:
+
+- A small headphone icon in the top-right corner marks each track with its
+  cue on, in any Phones Src mode. It uses the theme's active button fill
+  with a background-colour outline. On narrow headers it can cover the last
+  letter of the name.
+- Tracks with no input selected are greyed out with a stipple, so
+  unconfigured tracks stand out. Tracks with a recorded clip are not greyed.
+
+Both follow the track count, Single/Double Row and renamed tracks.
+
 ### Master saturation
 
 MAIN → B adds four rows after the compressor:

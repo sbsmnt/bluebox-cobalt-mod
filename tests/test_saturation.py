@@ -15,7 +15,7 @@ def definitions(image):
 a,old=definitions(stock);b,new=definitions(patched)
 lo=0x43*28;hi=lo+28
 check(old[lo:hi]==bytes(28),'native desktop definition slot 0x43 is unused in stock')
-check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(523) if i not in [0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba)]),'native parameter definitions outside the declared extensions (incl. exp.8 Tape Lo C 0x1b9) are preserved')
+check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(523) if i not in [0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba),0x178]),'native parameter definitions outside the declared extensions (incl. exp.8 Tape Lo C 0x1b9, Phones Src AUTO 0x178) are preserved')
 id,kind=struct.unpack('<HB',new[lo:lo+3]);label=u32(b,0xc0010000+lo+4);key=u32(b,0xc0010000+lo+24)
 def string(u,p):return bytes(u.mem_read(p,64)).split(b'\0')[0]
 check(id==0x43 and kind==8 and string(b,label)==b'Saturate:','native knob definition has expected id/type/label')

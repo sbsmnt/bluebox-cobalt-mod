@@ -2,6 +2,8 @@
 BLUEBOX.BIN
 modded/
 restored/
+firmware/
+.venv/
 
 # Build outputs (recreate with build.sh)
 build/

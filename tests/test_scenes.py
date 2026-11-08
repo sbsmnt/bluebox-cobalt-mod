@@ -29,7 +29,8 @@ def definitions(image,size):
  return u,bytes(u.mem_read(0xc0010000,size))
 a,old=definitions(stock,0x3934);u,new=definitions(patched,0x484c)
 check(patched[0x08134cce-0x08040000:][:4]==bytes.fromhex('44f64c00') and patched[0x08134ce0-0x08040000:][:4]==bytes.fromhex('44f64e02'),'definition table: allocation (r0) 0x484c = 0x295 records, clear length (r2) 0x484e')
-cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba)}
+cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba),0x178}
+check(new[0x178*28:0x179*28]==old[0x178*28:0x178*28+8]+struct.pack('<II',M['symbols']['cue7']['cue_phones_names'],3)+old[0x178*28+16:0x179*28],'Phones Src definition: only the AUTO list and count 3 change')
 check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(0x20b) if i not in cobalt),'stock parameter definitions 0..0x20a are preserved')
 recs=[struct.unpack('<HB',new[i*28:i*28+3]) for i in range(TAG0,TAG0+SLOTS)]
 check(all(r==(TAG0+i,1) for i,r in enumerate(recs)),'128 PC slot records registered at 0x20b..0x28a')
