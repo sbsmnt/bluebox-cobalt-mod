@@ -48,6 +48,13 @@ done
   -o build/gate7.elf src/gate_m7.c
 "$OBJCOPY" -O binary -j .cave build/gate7.elf build/gate7.bin
 "$NM" build/gate7.elf > build/gate7.symbols
+# DJ EQ: hot per-sample filters, so -O2 like the other DSP loops.
+"$CC" $M7_FLAGS -O2 -fno-tree-loop-distribute-patterns -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=dly_construct=0x$(awk '$3=="dly_construct"{print $1}' build/delay7.symbols) \
+  -Wl,--defsym=gate_process=0x$(awk '$3=="gate_process"{print $1}' build/gate7.symbols) \
+  -T src/dj7.ld -o build/dj7.elf src/dj_m7.c
+"$OBJCOPY" -O binary -j .cave build/dj7.elf build/dj7.bin
+"$NM" build/dj7.elf > build/dj7.symbols
 "$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 -T src/cue7.ld \
@@ -57,5 +64,20 @@ done
 "$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0   -Wl,--defsym=pc_present=0x$(awk '$3=="pc_present"{print $1}' build/pcm4.symbols)   -Wl,--defsym=gate_ui_tick=0x$(awk '$3=="gate_ui_tick"{print $1}' build/cm4.symbols)   -T src/cue4.ld -o build/cue4.elf src/cue_m4.c
 "$OBJCOPY" -O binary -j .cave build/cue4.elf build/cue4.bin
 "$NM" build/cue4.elf > build/cue4.symbols
+"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os \
+  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
+  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=pc_defs_hook=0x$(awk '$3=="pc_defs_hook"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=sat_default=0x$(awk '$3=="sat_default"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_default=0x$(awk '$3=="gate_default"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_track_local=0x$(awk '$3=="gate_track_local"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_track_bind=0x$(awk '$3=="gate_track_bind"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_turn=0x$(awk '$3=="gate_turn"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=pc_page_rows=0x$(awk '$3=="pc_page_rows"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=pc_knob=0x$(awk '$3=="pc_knob"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=cue_ui_tick=0x$(awk '$3=="cue_ui_tick"{print $1}' build/cue4.symbols) \
+  -T src/dj4.ld -o build/dj4.elf src/dj_m4.c
+"$OBJCOPY" -O binary -j .cave build/dj4.elf build/dj4.bin
+"$NM" build/dj4.elf > build/dj4.symbols
 rm -f build/gr7_main.o build/gr7_fast.o build/delay7_main.o build/delay7_fast.o
 python3 tools/make_release.py "$@"

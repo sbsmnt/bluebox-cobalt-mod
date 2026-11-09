@@ -29,7 +29,15 @@ void *gate_construct(uint8_t *obj,unsigned bands) {
 unsigned gate_process(uint8_t *obj,void *ctx) {
     unsigned ch=*(uint32_t *)(obj+0x18);
     /* The same native EQ class is also used on Main. Never gate that node. */
-    if(ch>=12)return ng_native(obj,ctx);
+    if(ch>=12) {
+        /* MIDI-learned Gate CCs arrive on Main's queue, addressed to the track. */
+        void *q=((void *(*)(void *,unsigned))0x080532d5u)(ctx,ch);
+        struct ng_event ev;
+        for(unsigned i=0;((int (*)(void *,unsigned,void *))0x0804e1b9u)(q,i,&ev);i++)
+            if(ev.type==0x39 && ev.target<12 && ev.id==NG_ID && ng_bank()->track[ev.target].owner)
+                ng_event(&ng_bank()->track[ev.target],ev.value);
+        return ng_native(obj,ctx);
+    }
     struct noise_gate *g=&ng_bank()->track[ch];if(g->owner!=obj)ng_reset(g,obj);
     void *q=((void *(*)(void *,unsigned))0x080532d5u)(ctx,ch);
     struct ng_event ev;

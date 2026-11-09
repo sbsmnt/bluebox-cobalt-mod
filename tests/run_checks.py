@@ -22,7 +22,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
   print(('FAIL' if rc else 'OK'),name,flush=True)
   print('\n'.join(tail),flush=True)
   if rc:failed.append(name)
-for source,logname in [('granular_host.c','granular-host.log'),('delay_types_host.c','delay-types-host.log'),('gate_host.c','gate-host.log'),('shoegaze_host.c','shoegaze-host.log'),('tape_host.c','tape-host.log')]:
+for source,logname in [('granular_host.c','granular-host.log'),('delay_types_host.c','delay-types-host.log'),('gate_host.c','gate-host.log'),('shoegaze_host.c','shoegaze-host.log'),('tape_host.c','tape-host.log'),('dj_eq_host.c','dj-eq-host.log')]:
  with tempfile.TemporaryDirectory(prefix='bluebox-host-check-') as td:
   binary=str(pathlib.Path(td)/'host-check')
   subprocess.run(['cc','-std=c11','-O1','-g','-fno-omit-frame-pointer','-fsanitize=address,undefined',str(root/'tests'/source),'-lm','-o',binary],check=True)

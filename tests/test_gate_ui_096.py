@@ -13,7 +13,7 @@ check(cs(u32(u,a+4))==b'Gate:' and cs(u32(u,a+24))==b'ngthreshold','Gate label a
 for ch in range(12):
  u.mem_write(TMP,b'\1');SET=APP+0xc08+ch*0x30;call(u,0x81202b8,SET,TMP)
  n,cap=struct.unpack('<HH',u.mem_read(SET+10,4))
- check(n==52 and cap==68 and call(u,0x8120234,SET,0x1ae)==((-96000)&0xffffffff),'track'+str(ch+1)+' defaults to Off in existing capacity')
+ check(n==58 and cap==96 and call(u,0x8120234,SET,0x1ae)==((-96000)&0xffffffff),'track'+str(ch+1)+' defaults to Off in existing capacity (52 stock+Gate, 6 DJ EQ; capacity raised to 96)')
 w32(u,APP+0xe78+4,0x24058000);u.mem_write(APP+0xe78+10,struct.pack('<HH',1,68));u.mem_write(0x24058000,struct.pack('<H2xi',0x18c,0))
 # Full native panel allocation/tree; no widget or drawing math is mocked.
 call(u,S['gate_mix_construct'],P)
