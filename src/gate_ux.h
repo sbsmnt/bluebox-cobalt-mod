@@ -135,6 +135,10 @@ void gate_ux_control(uint8_t *px,unsigned stride,unsigned fmt,unsigned bpp,uint8
      * zero; no intermediate FADE label or amber state is exposed. */
     const char *status=state==1?"OFF":state==4?"CLS":state>=2?"OPN":"--";
     uint32_t sc=state>=2 && state!=4?0x22bb22u:0xaaaaaau;
+    /* MIDI learn mode: the mapping (e.g. 1:2) from the knob's own learn
+     * label, in blue, in place of the status. */
+    const char *learn=(const char *)(w+0x2f4+0x34+0x31);
+    if(*(volatile uint8_t *)(0x300173d0u+0x73b3u) && learn[0]){status=learn;sc=0x3399ffu;}
     gx_center(px,stride,fmt,bpp,x,y+24,width,status,sc);
     int bw=width-8,by=y+35;
     gx_rect(px,stride,fmt,bpp,x+4,by,bw,4,0x303030u);

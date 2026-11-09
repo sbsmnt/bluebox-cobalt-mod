@@ -44,7 +44,9 @@ CELL=sum(1 for r in range(-1,8) for c in range(-1,10) if bit(r,c) or any(bit(r+a
 def dimmed(x,y):return BG if (x+y)%2==0 else PAINT
 
 # Patch wiring.
-for at,new in ((0x8137496,C4['cue_present']),(0x813408e,C4['cue_ui_tick'])):
+# The redraw check runs the DJ view tick first, which chains to the cue tick.
+check(M['symbols']['dj4']['cue_ui_tick']==C4['cue_ui_tick'],'DJ view tick chains to the cue icon tick')
+for at,new in ((0x8137496,C4['cue_present']),(0x813408e,M['symbols']['dj4']['dj_ui_tick'])):
  h1,h2=struct.unpack('<HH',u.mem_read(at,4));s=(h1>>10)&1
  off=(s<<24)|((1-(((h2>>13)&1)^s))<<23)|((1-(((h2>>11)&1)^s))<<22)|((h1&1023)<<12)|((h2&2047)<<1)
  check(at+4+(off-(1<<25) if s else off)==new,'call at '+hex(at)+' now reaches the cue hook')

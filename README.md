@@ -221,6 +221,62 @@ Both follow the track count, Single/Double Row and renamed tracks.
 
 Thanks to [Milan Wulf](https://github.com/milanwulf) for this feature ([pull request #1](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/1)).
 
+### DJ EQ and filter
+
+Every track has a DJ-style EQ and filter after its own EQ (and the gate):
+
+| Control | What it does |
+|---|---|
+| High / Hi Mid / Lo Mid / Low | Four bands, 0 dB at the centre: left down to −26 dB (with the ISO curve the far left kills the band), right up to +6 dB |
+| Filter | Left: low-pass down to 40 Hz. Right: high-pass up to 10 kHz. Centre: off |
+| Res | Resonance of the filter corner |
+
+**Open it:** press **EQ** until the third view: EQ → EQ full screen → **DJ**.
+The DJ view is laid out like TRACK: two blocks of four knobs, switched with
+**A**: High, Hi Mid, Lo Mid, Low, then Filter and Res. Pick the track as on
+TRACK. Turning a knob shows its value (dB, `KILL`, `LP`/`HP`, %) in its
+label. The bands and the filter rest at their centre: turning across it
+stops there, and leaving it takes a few more steps.
+
+The buttons on the right are **kills**, placed like the band knobs
+(`Kill High`, `Kill Hi Mid`, `Kill Lo Mid`, `Kill Low`; `Kill Mid` with 3
+bands). A press kills the band, a second press returns it to the value it
+had before (0 dB if it was killed with the knob). While a band is killed its
+button lights red and its knob label turns red too. **Filter Reset** above
+the Filter knob puts the filter back to Off (Res stays); it is lit while the
+filter is on. Kills and resets fade over about 10 ms, so they do not click.
+The level meter is hidden.
+
+**B** opens the DJ settings (below); B there returns. Press EQ again
+to return to EQ, TRACK for the TRACK page. EQ remembers the DJ view when
+you come back from another page.
+
+**DJ settings** (B in the DJ view; B there returns) apply to all tracks:
+
+| Setting | What it does |
+|---|---|
+| Bands | `4 Bands` (High, Hi Mid, Lo Mid, Low) or `3 Bands` (High, Mid, Low). With 3 bands the knobs keep their places (Mid where Hi Mid is, the Lo Mid place stays empty), and it costs less CPU |
+| Preset | Crossovers modelled on known mixers; the list follows the band count. 4 bands: `Default`, `Xone:92`, `Xone:96`, `DJM-V10`. 3 bands: `Default`, `DJM`, `Xone:42`, `Rane`, `Evo4`. A preset sets the ISO curve; changing a crossover by hand switches to `Custom` |
+| Curve | `ISO` (default): steep, phase-matched Linkwitz-Riley 4th-order bands that sum back to the input at 0 dB; the far left kills a band. `EQ`: gentler 2nd order, no kill |
+| Xover Lo / Mid / Hi | The crossovers (Mid only with 4 bands). Wider spacing gives deeper mid kills |
+| Filter Slope | `12 dB` or `24 dB` per octave |
+| Res Max | Caps the Res knob, 0–100 % |
+
+Presets use the mixers' published EQ band frequencies; the crossovers sit
+between neighbouring bands, so they recreate the band split, not the exact
+EQ shapes.
+
+All values are saved in the project and captured by scenes. A track with
+every DJ control at its centre is not processed at all. Each processed
+track costs CPU: with about five stereo tracks with changed EQ or filter
+settings the CPU bar reaches the orange range, which is still usable. 3
+bands cost less. Turning a control away from the centre, or back, fades in
+or out over 10 ms, so there are no clicks.
+
+**MIDI learn** works on the DJ knobs (the kill and reset buttons cannot be
+learned). Learned CCs follow the full range; the centre detent applies only
+to the bluebox encoders.
+
 ### Master saturation
 
 MAIN → B adds four rows after the compressor:

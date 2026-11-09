@@ -933,9 +933,9 @@ static uint8_t *sc_table(unsigned cell) {
 static int sc_allowed(unsigned cell,unsigned id) {
     int eq=id>=0x119u && id<=0x12fu;
     if(cell<12u)return eq || id==0x4u || id==0x3u || id==0x63u || id==0xdau || id==0xdbu ||
-        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu;
+        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu || (id>=0x1bau && id<=0x1bfu); /* DJ EQ */
     if(cell==0x0cu)return eq || id==0x4u || id==0x160u || id==0xb5u || (id>=0x130u && id<=0x13bu) ||
-        id==0x43u || (id>=0x1b6u && id<=0x1b8u);
+        id==0x43u || (id>=0x1b6u && id<=0x1b8u) || (id>=0x1c0u && id<=0x1c3u); /* DJ EQ settings */
     if(cell<=0x12u)return id==0x4u || id==0x160u;
     if(cell==0x16u)return id==0x85u; /* project settings: BPM only */
     return 1;

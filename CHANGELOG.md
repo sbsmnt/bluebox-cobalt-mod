@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+DJ EQ and filter, for bluebox desktop firmware 1.5.2.
+
+- **DJ EQ and filter** on every track: High / Hi Mid / Lo Mid / Low (−26 to
+  +6 dB, kill with the ISO curve), Filter (low-pass left, high-pass right)
+  and Res. Third EQ view (EQ → full screen → DJ), laid out like TRACK with
+  two A-switched blocks. MAIN → B: DJ Curve (ISO / EQ) and the three
+  crossovers. Saved in projects and scenes.
+- **DJ settings** (B in the DJ view): Bands (4 / 3), Preset (Xone:92,
+  Xone:96, DJM-V10; DJM, Xone:42, Rane, Evo4), Curve, crossovers, Filter Slope
+  (12 / 24 dB), Res Max.
+- **DJ view buttons:** kill buttons per band (kill ↔ the value before, knob
+  label lit with the button), Filter Reset, centre detent on the bands and
+  the filter. Kills fade over 10 ms; switching the filter between low-pass
+  and high-pass fades through dry, so neither clicks. With 3 bands the knobs keep their places. The level
+  meter and its frame are hidden.
+- **MIDI learn** works on the DJ knobs and on Cobalt's Gate knob on TRACK:
+  learn frame and mapping (the native bind only asked for its own ids), and
+  the learned CCs, which the audio core sends through Main's queue and
+  scales by its own parameter table (now with ranges for these ids). The kill
+  and reset buttons are not learnable and show no learn frame.
+- Parameter sets hold 96 entries instead of 68 at every allocation (Main was
+  full, so new settings were silently dropped).
+- Projects saved before get the DJ entries added when first used.
+- **Gate on TRACK:** in MIDI learn mode the Gate panel shows the mapping
+  (e.g. `1:2`) in blue in place of OPN/CLS.
+
 ## v1.2.0
 
 Phones AUTO cue, for bluebox desktop firmware 1.5.2. Contributed by

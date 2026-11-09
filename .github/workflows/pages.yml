@@ -64,7 +64,7 @@ jobs:
 
       - name: DSP host tests (ASan/UBSan)
         run: |
-          for t in granular delay_types gate shoegaze tape; do
+          for t in granular delay_types gate shoegaze tape dj_eq; do
             cc -std=c11 -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined \
               "tests/${t}_host.c" -lm -o "/tmp/${t}_host"
             ASAN_OPTIONS=detect_leaks=0 "/tmp/${t}_host" | tail -n 1
