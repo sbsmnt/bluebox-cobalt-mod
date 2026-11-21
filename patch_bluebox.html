@@ -265,7 +265,7 @@ const GUIDE_BODY={
  scenes:()=>`<p>Scenes recall a mix instantly, without loading the project. Each project keeps up to 16, saved in the project file.</p>
   ${steps(['Press '+kbd('PROJ')+' and select a project in the list.','Press '+kbd('A')+': the scene page opens with the project name at the top.','Turn a top encoder to pick a row, a bottom encoder to change its number.','Tap '+kbd('Select')+'. Press '+kbd('A')+' to leave.'])}
   ${seg('row',SCENE_ROWS.map(r=>r[0]),G.row)}<p class="gdesc">${SCENE_ROWS[G.row][1]}</p>
-  <p class="gsub">A scene is a snapshot of:</p><ul class="gincl">${['track level','pregain','pan','sends','mute','solo','compressor','EQ','gate','the master and aux buses','every FX1/FX2 parameter, including the effect type','the BPM'].map(x=>'<li>'+x+'</li>').join('')}</ul>
+  <p class="gsub">A scene is a snapshot of:</p><ul class="gincl">${['track level','pregain','pan','sends','mute','solo','compressor','EQ','gate','track saturation','the master and aux buses','every FX1/FX2 parameter, including the effect type','the BPM'].map(x=>'<li>'+x+'</li>').join('')}</ul>
   <p class="muted">In the PROJ list the loaded project shows <code>* </code>; a new project starts at scene 1.</p>`,
  quick:()=>`<p>Save the next empty scene without leaving MAIN.</p>
   ${steps(['On '+kbd('MAIN')+', hold '+kbd('A')+'.','The band at the top shows <code>HOLD A: SAVE SCENE n</code> and fills.','At 2 s the scene is saved (<code>SCENE n SAVED</code>) and so is the project. Let go earlier and nothing is saved.'])}
