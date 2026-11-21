@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Track saturation:** a Soft saturation on every track (same curve and
+  level compensation as the master Soft mode), before the track's gate and
+  EQ. MIXER → Gate: press the Gate/NG button again to switch the row to
+  Sat/SAT and back. Saved in the project (`trksat`) and in scenes; 0 is an
+  exact bypass. Uses flash `0x080c8000` and backup SRAM `0x38800c00`,
+  parameter `0x1ba`.
+
 ## v1.2.0
 
 Phones AUTO cue, for bluebox desktop firmware 1.5.2. Contributed by

@@ -29,7 +29,7 @@ def definitions(image,size):
  return u,bytes(u.mem_read(0xc0010000,size))
 a,old=definitions(stock,0x3934);u,new=definitions(patched,0x484c)
 check(patched[0x08134cce-0x08040000:][:4]==bytes.fromhex('44f64c00') and patched[0x08134ce0-0x08040000:][:4]==bytes.fromhex('44f64e02'),'definition table: allocation (r0) 0x484c = 0x295 records, clear length (r2) 0x484e')
-cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba),0x178}
+cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1bb),0x178}
 check(new[0x178*28:0x179*28]==old[0x178*28:0x178*28+8]+struct.pack('<II',M['symbols']['cue7']['cue_phones_names'],3)+old[0x178*28+16:0x179*28],'Phones Src definition: only the AUTO list and count 3 change')
 check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(0x20b) if i not in cobalt),'stock parameter definitions 0..0x20a are preserved')
 recs=[struct.unpack('<HB',new[i*28:i*28+3]) for i in range(TAG0,TAG0+SLOTS)]
@@ -284,7 +284,7 @@ def tget(u,cell,id):return call(u,0x8120234,taddr(cell),id)&0xffffffff
 def tset(u,cell,id,v):call(u,0x8120264,taddr(cell),id,v&0xffffffff)
 u=scene_machine()
 check(u32(u,0x38800fd0)==0x53434e31 and SB(u)>=0xc0100000,'scene bank allocated once at boot (parameter-definitions hook)')
-TRACK={0x4,0x3,0x63,0xda,0xdb,0x15d,0x15e,0x15f,0x160,0x161,0x163,0x1ae}|set(range(0x119,0x130))
+TRACK={0x4,0x3,0x63,0xda,0xdb,0x15d,0x15e,0x15f,0x160,0x161,0x163,0x1ae,0x1ba}|set(range(0x119,0x130))
 MASTER={0x4,0x160,0xb5,0x43,0x1b6,0x1b7,0x1b8}|set(range(0x130,0x13c))|set(range(0x119,0x130))
 
 # Scene page actions: A on PROJ opens it; A on the page acts on the selected row.
@@ -302,11 +302,12 @@ def act(row,value=None):
  if value is not None:w32(u,field(row),value)
  select()
 def save(n):act(1,n)
-tset(u,0,0x4,-6000);tset(u,3,0x160,1);tset(u,0x0c,0x132,-18000);tset(u,0x14,0x33,250)
+tset(u,0,0x4,-6000);tset(u,3,0x160,1);tset(u,0x0c,0x132,-18000);tset(u,0x14,0x33,250);tset(u,5,0x1ba,600)
 save(1)
 it=items(u)
 check(used(u)==1 and current(u)==1 and len(it)>400,'Save Scene 1 builds the template (%d values) and snapshots it'%len(it))
-check(all(id in TRACK for c,id in it if c<12),'tracks: only level/pregain/pan/sends/mute/solo/comp/EQ/gate')
+check(all(id in TRACK for c,id in it if c<12),'tracks: only level/pregain/pan/sends/mute/solo/comp/EQ/gate/sat')
+check(all((c,0x1ba) in it for c in range(12)),'tracks: per-track saturation captured on every track')
 check(not any(id in (0x112,0x162,0x16d,0x16e) or 0x1f<=id<=0x2b for c,id in it if c<12),'tracks: no source, rec-enable, play, asset or ducking')
 check(all(id in MASTER for c,id in it if c==0x0c),'master: compressor/EQ/level/mute/saturation only (no routing/USB)')
 check(all(id in (0x4,0x160) for c,id in it if 0x0d<=c<=0x12),'aux buses: level and mute only')
@@ -317,7 +318,7 @@ check(fx2 and fx2[0]==0x155,'FX2: reverb style (0x155) first')
 check([id for c,id in it if c==0x16]==[0x85],'project settings (cell 0x16): BPM only, no metronome/transport/clock')
 check(not any(c==0x13 or c>0x16 for c,_ in it),'no other cells')
 j=it.index((0,0x4));check(val(u,0,j)==(-6000)&0xffffffff,'snapshot holds the live track 1 level')
-tset(u,0,0x4,-1000);tset(u,3,0x160,0);tset(u,0x0c,0x132,-6000);tset(u,0x14,0x33,500);tset(u,0x14,0x1a0,2);tset(u,0x16,0x85,90)
+tset(u,0,0x4,-1000);tset(u,3,0x160,0);tset(u,5,0x1ba,0);tset(u,0x0c,0x132,-6000);tset(u,0x14,0x33,500);tset(u,0x14,0x1a0,2);tset(u,0x16,0x85,90)
 save(2)
 check(used(u)==3 and current(u)==2,'Save Scene 2 (scene page row 2 + Select)')
 
@@ -351,6 +352,7 @@ check(set((c,id) for _,c,id,_ in calls)>={(0,0x4),(3,0x160),(0x0c,0x132),(0x14,0
 fxcalls=[id for _,c,id,_ in calls if c==0x14]
 check(fxcalls.index(0x1a0)<fxcalls.index(0x33),'FX1 mode replayed before its parameters')
 check(tget(u,0,0x4)==(-6000)&0xffffffff and tget(u,3,0x160)==1 and tget(u,0x0c,0x132)==(-18000)&0xffffffff and tget(u,0x14,0x33)==250 and tget(u,0x16,0x85)==120,'live state equals scene 1 after recall (BPM back to 120)')
+check((5,0x1ba) in set((c,id) for _,c,id,_ in calls) and tget(u,5,0x1ba)==600,'per-track saturation recalled with the scene')
 check(current(u)==1 and all(tget(u,c,0x63)==val(u,0,items(u).index((c,0x63))) for c in range(12)),'current scene = 1; every captured value restored')
 del knob[:];check(mainpass()==0 and mainpass()==0,'nothing left to replay')
 

@@ -20,22 +20,7 @@ struct sat_event { uint8_t type,pad[11];uint16_t id,reserved;int32_t value;uint3
 struct sat_state {uint32_t magic;int32_t drive;float g,mix;};
 #define SAT_STATE ((volatile struct sat_state *)0x38800f80u)
 #define SAT_MAGIC 0x44534134u
-#define SAT_REF .2f
-static float exp2f_(float x)        /* 0 <= x < 8 */
-{
-    int i = (int)x;
-    float f = x - (float)i;
-    union { float f; uint32_t u; } v = { 1.f + f * (0.6931472f + f * (0.2402265f + f * (0.0555041f + f * (0.0096181f + f * 0.0013334f)))) };
-    v.u += (uint32_t)i << 23;
-    return v.f;
-}
-static float sat(float x)
-{
-    if (x > 3.f) return 1.f;
-    if (x < -3.f) return -1.f;
-    float x2 = x * x;
-    return x * (27.f + x2) / (27.f + 9.f * x2);
-}
+#include "soft_sat.h"
 
 static void sat_events(uint8_t *obj,void *ctx) {
     volatile struct sat_state *s=SAT_STATE;

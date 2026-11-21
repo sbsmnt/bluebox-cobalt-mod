@@ -927,13 +927,13 @@ static uint8_t *sc_table(unsigned cell) {
     if(cell>=0x14u && cell<=0x16u)return PC_SESSION+0xe48u+(cell-0x14u)*0x10u;
     return 0;
 }
-/* Mixer + FX + BPM: track level/pregain/pan/sends/mute/solo/comp/EQ/gate;
+/* Mixer + FX + BPM: track level/pregain/pan/sends/mute/solo/comp/EQ/gate/sat;
  * master compressor/EQ/level/mute/saturation; aux level/mute; every FX1/FX2
  * parameter (cells 0x14/0x15); BPM from the project settings (cell 0x16). */
 static int sc_allowed(unsigned cell,unsigned id) {
     int eq=id>=0x119u && id<=0x12fu;
     if(cell<12u)return eq || id==0x4u || id==0x3u || id==0x63u || id==0xdau || id==0xdbu ||
-        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu;
+        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu || id==0x1bau;
     if(cell==0x0cu)return eq || id==0x4u || id==0x160u || id==0xb5u || (id>=0x130u && id<=0x13bu) ||
         id==0x43u || (id>=0x1b6u && id<=0x1b8u);
     if(cell<=0x12u)return id==0x4u || id==0x160u;

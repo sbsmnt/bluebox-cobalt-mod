@@ -16,6 +16,9 @@ def gate_pair(ch=0):
  out=[]
  for img,sym in ((ref,p5.MANIFEST['symbols']['gate7']),(patched,M['symbols']['gate7'])):
   u=machine(img,double=True);heap=[0xc0010000]
+  # Measure the gate itself: per-track saturation (test_track_saturation.py)
+  # now runs first in the EQ callback and bounds its own Off cost.
+  if img is patched:w32(u,EQSOURCE+12,sym['gate_process']|1)
   def alloc(u,heap=heap):
    a=heap[0];heap[0]=(a+u.reg_read(UC_ARM_REG_R0)+15)&~15;u.reg_write(UC_ARM_REG_R0,a)
   stub(u,0x80412a4,alloc)

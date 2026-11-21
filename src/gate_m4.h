@@ -1,16 +1,22 @@
 /* Gate on MIXER sends page and beside OUT2 in the native Track controls. */
 #define NG_ID4 0x1aeu
+#define TS_ID4 0x1bau /* per-track saturation, track_saturation.h */
 #include "gate_diag_ui.h"
 void gate_default(void *set,unsigned id,int value) {
-    STOCK_ADD(set,id,value);STOCK_ADD(set,NG_ID4,-96000);
+    STOCK_ADD(set,id,value);STOCK_ADD(set,NG_ID4,-96000);STOCK_ADD(set,TS_ID4,0);
 }
 /* Match the native sends-group visibility in 0x0812e706: setting 0
  * displays the six-output group; nonzero displays the five-output group.
  * Reversing this selects OUT3 when the visible sixth Gate button is pressed. */
 static unsigned gate_quad(void) {return fw_get((uint8_t *)0x300173d0u+0xe78,0x18c)==0;}
-static void gate_knob_bind(uint8_t *w,unsigned ch,int value) {
-    ((void (*)(void *,unsigned,int,unsigned))0x08127b85u)(w,NG_ID4,value,1);
+/* The MIXER Gate row also hosts per-track Sat (press Gate again to switch). */
+static unsigned mix_track_id(unsigned id) {return id==NG_ID4 || id==TS_ID4;}
+static void mix_knob_bind(uint8_t *w,unsigned ch,unsigned id,int value) {
+    ((void (*)(void *,unsigned,int,unsigned))0x08127b85u)(w,id,value,1);
     *(uint16_t *)(w+0x32)=(uint16_t)ch;
+}
+static void gate_knob_bind(uint8_t *w,unsigned ch,int value) {
+    mix_knob_bind(w,ch,NG_ID4,value);
     /* Native type-7 knobs reserve ten positions below the minimum. Gate has
      * a single Off position; start at its last equivalent native position so
      * the next 0.1 dB step enables the gate, rather than traversing that pad. */
@@ -24,10 +30,16 @@ static void gate_button_rect(uint8_t *p,uint8_t *w,unsigned i,unsigned count) {
         (int)((i+1)*320u/count-i*320u/count)-1,39};
     (*(void (***)(void *,int *))w)[0x20/4](w,r);
 }
+/* The shared Gate/Sat button names the row it currently shows. */
+static void gate_labels(uint8_t *p) {
+    unsigned sat=*(uint16_t *)(p+0xbca0)==TS_ID4;
+    ((void (*)(void *,const char *))0x0813820du)(p+0xc3a4,sat?"Sat":"Gate");
+    ((void (*)(void *,const char *))0x0813820du)(p+0xbfe4,sat?"SAT":"NG");
+}
 void gate_mix_setup(uint8_t *p,unsigned mode) {
     ((void (*)(void *,unsigned))0x0812e54du)(p,mode);
     uint8_t *normal=p+0xc3a4,*extra=p+0xbfe4;
-    ((void (*)(void *,const char *))0x0813820du)(normal,"Gate");
+    gate_labels(p);
     (*(void (***)(void *,unsigned))normal)[0x2c/4](normal,0);
     for(unsigned i=0;i<6;i++)gate_button_rect(p,p+0xc084+i*0xa0,i,6);
     for(unsigned i=0;i<6;i++)gate_button_rect(p,p+0xc444+i*0xa0,i,7);
@@ -50,31 +62,46 @@ void gate_mix_select(uint8_t *p,unsigned index) {
     gd_mix_capture(p,*(uint16_t *)(p+0xbc9c));
     if(mode==1) {
         uint8_t *gate=p+(quad?0xbfe4:0xc3a4);
-        ((void (*)(void *,unsigned))0x08138221u)(gate,index==6);
+        ((void (*)(void *,unsigned))0x08138221u)(gate,index>=6);
     }
+    gate_labels(p);
+}
+/* Button presses only (not page rebuilds): pressing Gate while the Gate row
+ * is shown selects Sat, the eighth sends selector (0x1ba); pressing it again
+ * returns to Gate. Rebuilds restore the saved index, 6 or 7, unchanged. */
+void gate_mix_press(uint8_t *p,unsigned index) {
+    unsigned mode=*(unsigned *)(p+0xd26c);
+    if(mode==1 && !gate_quad() && index==5)index=6;
+    if(mode==1 && index==6 && *(uint16_t *)(p+0xbca0)==NG_ID4)index=7;
+    gate_mix_select(p,index);
 }
 void gate_column(uint8_t *p,short *slot) {
     /* Native binding preserves its disabled flag. Undo only our Main override
      * before letting the original binder choose the next parameter's state. */
     if(*slot==12) {
         uint8_t *k=p+0xbe0+12*0xd98+0x8f0;
-        if(*(uint16_t *)(k+0x94)==NG_ID4)k[0x2d4]=0;
+        if(mix_track_id(*(uint16_t *)(k+0x94)))k[0x2d4]=0;
     }
     ((void (*)(void *,short *))0x0812dde9u)(p,slot);
-    if(*(uint16_t *)(p+0xbca0)!=NG_ID4)return;
+    unsigned id=*(uint16_t *)(p+0xbca0);
+    if(!mix_track_id(id))return;
     int ch=*slot;if(ch<0 || ch>12)return;
     uint8_t *w=p+0xbe0+ch*0xd98;
     if(ch==12) {
-        /* Main has no per-track threshold; keep its control disabled. */
+        /* Main has no per-track threshold or Sat; keep its control disabled. */
         ((void (*)(void *,unsigned))0x0812d72fu)(w,1);
         ((void (*)(void *,unsigned))0x0812d507u)(w,0);
         uint8_t *knob=w+0x8f0;knob[0x2d4]=1;
         ((void (*)(void *,const char *))0x0813fe4bu)(knob+0xa0,"N/A");
         return;
     }
-    int value=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,NG_ID4);
+    int value=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,id);
     /* Rebind from the authoritative channel setting, just like TRACK. */
     uint8_t *knob=w+0x8f0;
+    if(id==TS_ID4) {
+        mix_knob_bind(knob,(unsigned)ch,TS_ID4,value);
+        return;
+    }
     gate_knob_bind(knob,(unsigned)ch,value);
     if(*(uint16_t *)(p+0xbc9c)==(unsigned)ch)gd_mix_capture(p,ch);
     *(float *)(w+0x400)=-96.f;*(float *)(w+0x404)=-12.f;
@@ -93,20 +120,21 @@ __attribute__((naked)) void gate_db_shim(void) {
     __asm volatile("push {r4,lr}\nbl gate_db_format\npop {r4,pc}");
 }
 
-static void gate_commit(uint16_t ch,int value);
 #include "gate_ux.h"
 
-static void gate_commit(uint16_t ch,int value) {
+static void mix_commit(uint16_t ch,unsigned id,int value) {
     if(ch>=12)return;
-    if(value<-96000)value=-96000;
-    if(value>-12000)value=-12000;
+    int lo=id==TS_ID4?0:-96000,hi=id==TS_ID4?1000:-12000;
+    if(value<lo)value=lo;
+    if(value>hi)value=hi;
     ((void (*)(void *,uint16_t *,unsigned,int,unsigned))0x08124b45u)
-        ((void *)0x300173d0u,&ch,NG_ID4,value,0);
+        ((void *)0x300173d0u,&ch,id,value,0);
 }
 unsigned gate_mix_event(uint8_t *p,uint32_t *ev) {
     unsigned type=(uint16_t)ev[0];
     if(type==0x32)gd_mix_input(p,ev);
-    if(type==0x32 && *(uint16_t *)(p+0xbca0)==NG_ID4) {
+    unsigned id=*(uint16_t *)(p+0xbca0);
+    if(type==0x32 && mix_track_id(id)) {
         /* Native dispatch first turns the four base encoder bindings, then
          * the column knobs. An unknown selection can leave a base binding
          * on Vol. Gate turns bypass that path. Mirror native bank mapping. */
@@ -115,20 +143,22 @@ unsigned gate_mix_event(uint8_t *p,uint32_t *ev) {
         int ch=index+2 * *(int *)(p+0xbcbc);
         if(ch>=0 && ch<12) {
             uint8_t *k=p+0xbe0+(unsigned)ch*0xd98+0x8f0;
-            int value=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,NG_ID4);
-            if(*(uint16_t *)(k+0x94)!=NG_ID4 || *(int *)(k+0x98)!=value)
-                gate_knob_bind(k,(unsigned)ch,value);
+            int value=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,id);
+            if(*(uint16_t *)(k+0x94)!=id || *(int *)(k+0x98)!=value) {
+                if(id==NG_ID4)gate_knob_bind(k,(unsigned)ch,value);
+                else mix_knob_bind(k,(unsigned)ch,id,value);
+            }
             k[0x30]=0;k[0x2d4]=0;
             gate_turn(k,(int16_t)ev[4]);
             value=*(int *)(k+0x98);
             /* Child bubbling normally commits first. Retain an explicit
              * commit if an intermediate handler consumes the child edit. */
-            if(value!=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,NG_ID4))
-                gate_commit((uint16_t)ch,value);
+            if(value!=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,id))
+                mix_commit((uint16_t)ch,id,value);
         }
         return 0;
     }
-    if(type==0x6e && (uint16_t)ev[2]==12 && ev[3]==NG_ID4)return 0;
+    if(type==0x6e && (uint16_t)ev[2]==12 && mix_track_id(ev[3]))return 0;
     return ((unsigned (*)(void *,void *))0x0812e755u)(p,ev);
 }
 /* Child edits arrive at vtable +0x30, not +0x34 (global notifications).
@@ -140,9 +170,9 @@ static unsigned gate_edit(uint32_t *ev) {
     unsigned type=(uint16_t)ev[0];
     if(type!=0x6e && type!=0x3c && type!=0x3d)return 0;
     unsigned id=type==0x6e?ev[3]:ev[4];
-    if(id!=NG_ID4)return 0;
+    if(!mix_track_id(id))return 0;
     uint16_t ch=(uint16_t)ev[2];
-    gate_commit(ch,(int)(type==0x6e?ev[4]:ev[3]));
+    mix_commit(ch,id,(int)(type==0x6e?ev[4]:ev[3]));
     return 1;
 }
 unsigned gate_mix_local(uint8_t *p,uint32_t *ev) {

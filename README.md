@@ -3,7 +3,7 @@
 **v1.2.0 - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
-modes, a new reverb, a per-track noise gate, master saturation, compressor
+modes, a new reverb, a per-track noise gate and saturation, master saturation, compressor
 meters, an overdub recording fix, mixer scenes with MIDI recall, MIDI
 controller sync and custom colour themes. The patcher runs locally: it takes your copy of the official
 1.5.2 firmware and writes a new `BLUEBOX.BIN`. No firmware is distributed
@@ -198,6 +198,18 @@ steps when turned slowly and speeds up when spun. MIXER → Gate meters show
 the level the gate listens to on the Gate fader's scale, so the meter crosses
 the fader exactly when the gate opens.
 
+### Track saturation
+
+A Soft saturation on every track, with the same curve as the master **Soft**
+mode: drive is level-compensated, so turning it up adds harmonics rather
+than volume. 0 is a true bypass. It runs before the track's gate and EQ, so
+the gate listens to the saturated signal.
+
+Set it in MIXER → Gate: press the Gate button (`NG` when OUT3 is present)
+again and the row switches to **Sat** (`SAT`); press once more to go back to
+Gate. Main has no Sat. The amount is saved in the project (`trksat`),
+captured by scenes and recalled by Program Change.
+
 ### Phones AUTO cue
 
 MAIN → B → **Phones Src** has a third choice, **AUTO**, next to CUE and MAIN.
@@ -270,7 +282,7 @@ word-sized bursts instead of byte by byte. The audio is bit-identical.
 ### Scenes
 
 A scene is a snapshot of the mixer (track level, pregain, pan, sends, mute,
-solo, compressor, EQ and gate), the master and aux buses, every FX1/FX2
+solo, compressor, EQ, gate and saturation), the master and aux buses, every FX1/FX2
 parameter including the effect type, and the BPM. Each project holds up to
 16, saved in the project file. Recalling a scene changes only the values
 that differ, without loading anything, so playback and recording carry on.

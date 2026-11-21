@@ -99,13 +99,18 @@ ngcode=(ROOT/'build'/'gate7.bin').read_bytes()
 if len(ngcode)>0x8000:raise ValueError('gate code cave too large')
 ngs={f[2]:int(f[0],16) for line in (ROOT/'build'/'gate7.symbols').read_text().splitlines() if len(f:=line.split())==3}
 add('M7 adaptive gate code',0x080c0000,bytes(len(ngcode)),ngcode)
-add('channel EQ gate process pointer',0x0806a2b4,struct.pack('<I',0x08043b91),struct.pack('<I',ngs['gate_process']|1))
+# Per-track saturation runs first and chains into the gate (sat -> gate -> EQ).
+tscode=(ROOT/'build'/'trsat7.bin').read_bytes()
+if len(tscode)>0x8000:raise ValueError('track saturation code cave too large')
+tss={f[2]:int(f[0],16) for line in (ROOT/'build'/'trsat7.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('M7 track saturation code',0x080c8000,bytes(len(tscode)),tscode)
+add('channel EQ gate process pointer',0x0806a2b4,struct.pack('<I',0x08043b91),struct.pack('<I',tss['tsat_process']|1))
 # exp.7: MIXER Gate view meters show the detector input on the Gate fader's
 # scale (restores the v0.9.7 publication overrides, with the scale mapping).
 for at,old,new in [(0x0804f8be,0x0804bab0,'gate_meter_mono_shim'),(0x0804f9c6,0x0804bacc,'gate_meter_stereo_shim'),(0x0804f9e0,0x0804bacc,'gate_meter_stereo_shim')]:
  add('Gate input meter '+hex(at),at,branch(at,old),branch(at,ngs[new]))
 for at in [0x0804304a,0x08050c96,0x08051062]:
- add('gate EQ owner constructor '+hex(at),at,branch(at,0x08042e60),branch(at,ngs['gate_construct']))
+ add('gate EQ owner constructor '+hex(at),at,branch(at,0x08042e60),branch(at,tss['tsat_construct']))
 add('TRACK Gate fine encoder',0x08133248,branch(0x08133248,0x08127d50),branch(0x08133248,symbols(4)['gate_turn']))
 add('Gate knob Off formatting',0x08127a08,branch(0x08127a08,0x081403c4),branch(0x08127a08,symbols(4)['gate_db_shim']))
 add('channel defaults append gate',0x08120534,branch(0x08120534,0x0812028e),branch(0x08120534,symbols(4)['gate_default']))
@@ -124,10 +129,13 @@ add('mixer node process pointer records the mixer',0x0806af38,struct.pack('<I',0
 add('Phones Src three choices',0x081358dc,bytes.fromhex('0223'),bytes.fromhex('0323'))
 add('Phones Src CUE MAIN AUTO list',0x08135b28,struct.pack('<I',0x0814bf34),struct.pack('<I',cues['cue_phones_names']))
 add('MIXER sends Gate selector',0x0814b7f4,bytes(2),struct.pack('<H',0x1ae))
+# Eighth sends selector (spare halfword before the first-page table): Sat.
+add('MIXER sends Sat selector',0x0814b7f6,bytes(2),struct.pack('<H',0x1ba))
 for at in [0x0812e4c0,0x0812e4d0]:
  add('MIXER seventh button range '+hex(at),at,bytes.fromhex('0528' if at==0x0812e4c0 else '0529'),bytes.fromhex('0628' if at==0x0812e4c0 else '0629'))
-for at in [0x0812e4d8,0x0812e6a4]:
- add('MIXER sends selection '+hex(at),at,branch(at,0x0812e2e0),branch(at,symbols(4)['gate_mix_select']))
+# Button presses may switch Gate to Sat; the page rebuild restores the saved index.
+add('MIXER sends selection 0x812e4d8',0x0812e4d8,branch(0x0812e4d8,0x0812e2e0),branch(0x0812e4d8,symbols(4)['gate_mix_press']))
+add('MIXER sends selection 0x812e6a4',0x0812e6a4,branch(0x0812e6a4,0x0812e2e0),branch(0x0812e6a4,symbols(4)['gate_mix_select']))
 for at in [0x081331c0,0x081331dc,0x081331fe]:
  add('Track Gate knob binding '+hex(at),at,branch(at,0x081328f8),branch(at,symbols(4)['gate_track_bind']))
 # Gate uses native default/Vol metering. The earlier detector-input report
@@ -314,6 +322,7 @@ manifest['symbols']['delay7']=ds
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['cue7']=cues
 manifest['symbols']['cue4']=cue4
+manifest['symbols']['trsat7']=tss
 manifest['meters_only_sha256']='76fb996aa76ecfa0d8234aca1210bf360e234a49653b8fe213c97f131deaa29f'
 manifest['cpu_only_sha256']='bc86a68620be4916c64220acb51bd04a6b2bb5c2d53517614588f58cc9b0fb9a'
 (ROOT/'patch_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

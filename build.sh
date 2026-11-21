@@ -48,6 +48,15 @@ done
   -o build/gate7.elf src/gate_m7.c
 "$OBJCOPY" -O binary -j .cave build/gate7.elf build/gate7.bin
 "$NM" build/gate7.elf > build/gate7.symbols
+# Per-track saturation: own cave, chains into the gate payload.
+"$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
+  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
+  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=gate_process=0x$(awk '$3=="gate_process"{print $1}' build/gate7.symbols) \
+  -Wl,--defsym=gate_construct=0x$(awk '$3=="gate_construct"{print $1}' build/gate7.symbols) \
+  -T src/trsat7.ld -o build/trsat7.elf src/trsat_m7.c
+"$OBJCOPY" -O binary -j .cave build/trsat7.elf build/trsat7.bin
+"$NM" build/trsat7.elf > build/trsat7.symbols
 "$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 -T src/cue7.ld \

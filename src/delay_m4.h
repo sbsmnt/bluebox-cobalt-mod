@@ -126,7 +126,7 @@ struct fx_ui {
 #define UI ((struct fx_ui *)0x38800b00u)
 #define UI_MAGIC 0x4658553bu
 #define UI_NOW (*(volatile uint32_t *)0x3001eb3cu) /* native encoder/button millisecond clock */
-_Static_assert(0xb00+sizeof(struct fx_ui)<=0xd00,"UI state below extended delay");
+_Static_assert(0xb00+sizeof(struct fx_ui)<=0xc00,"UI state below track saturation (0xc00)");
 static struct fx_ui *ui_state(void) {
     backup_enable();PWR_CR1|=1u<<8;
     struct fx_ui *u=UI;
