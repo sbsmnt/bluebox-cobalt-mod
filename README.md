@@ -3,7 +3,7 @@
 **v1.2.0 - for bluebox desktop firmware 1.5.2**
 
 Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
-modes, a new reverb, a per-track noise gate and saturation, master saturation, compressor
+modes, a new reverb, a per-track noise gate and saturation with a Soft-to-hard clip curve, master saturation, compressor
 meters, an overdub recording fix, mixer scenes with MIDI recall, MIDI
 controller sync and custom colour themes. The patcher runs locally: it takes your copy of the official
 1.5.2 firmware and writes a new `BLUEBOX.BIN`. No firmware is distributed
