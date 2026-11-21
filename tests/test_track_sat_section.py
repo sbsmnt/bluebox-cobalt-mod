@@ -1,12 +1,12 @@
 """TRACK third control section: A cycles first square -> second square ->
-Sat square -> first. The real A dispatcher, native page switch, section
+Sat square (SAT + CURVE pots) -> first. The real A dispatcher, native page switch, section
 layout, knob binder, encoder router and model setter execute; the posted
 page-entry event (0x8c) is delivered to the patched section call site, and
 LED/IPC/notification boundaries are substituted (gate_ui_fixture)."""
 from gate_ui_fixture import *
-TID=0x1ba
+TID=0x1ba;CID=0x1bb
 SESSION=0x300173d0;EV=TMP+0x200
-OTHERS=[0xc768,0xcb38,0xcf08,0xd2d8,0xd6a8,0xda78,0xde48]
+OTHERS=[0xcb38,0xcf08,0xd2d8,0xd6a8,0xda78,0xde48]
 def half(a):return struct.unpack('<H',u.mem_read(a,2))[0]
 def hid(off):return u.mem_read(T+off+0x30,1)[0]
 def label(w):return bytes(u.mem_read(w+0xd1,8)).split(b'\0')[0]
@@ -31,26 +31,35 @@ def encoder(index,delta):
  u.mem_write(EV,struct.pack('<6I',0x32,0x8148664,0,index,delta,0));call(u,0x8133194,T,EV)
  return commands[:]
 def native_first(tag):
- check(u32(u,T+0xebbc)==0 and half(T+0xc398+0x94)==4 and label(T+0xc398)==b'VOL' and not any(hid(o) for o in OTHERS),tag+': native first square (VOL back, nothing hidden)')
+ check(u32(u,T+0xebbc)==0 and half(T+0xc398+0x94)==4 and label(T+0xc398)==b'VOL' and half(T+0xc768+0x94)==0x63 and label(T+0xc768)==b'PAN' and hid(0xc768)==0 and not any(hid(o) for o in OTHERS),tag+': native first square (VOL and PAN back, nothing hidden)')
 w32(u,0x38800ce0,0)
-for ch in range(12):call(u,0x8120264,APP+0xc08+ch*0x30,TID,100*ch)
+for ch in range(12):call(u,0x8120264,APP+0xc08+ch*0x30,TID,100*ch);call(u,0x8120264,APP+0xc08+ch*0x30,CID,50*ch)
 bind(3);u.mem_write(SESSION+0x739a,b'\5');call(u,S['ts_track_section'],T,0)
 native_first('start')
 press_a()
 check(page()==6 and u32(u,T+0xebbc)==1 and not any(hid(o) for o in OTHERS),'first A press: second square, as stock')
 press_a()
-w=T+0xc398
+w=T+0xc398;cw=T+0xc768
 check(page()==5 and u32(u,T+0xebbc)==0,'second A press: Sat section on the first-section encoders')
 check(half(w+0x94)==TID and struct.unpack('<i',u.mem_read(w+0x98,4))[0]==300 and half(w+0x32)==3 and hid(0xc398)==0 and label(w)==b'SAT','Sat pot (labelled SAT) takes the first slot with track 4 stored value')
+check(half(cw+0x94)==CID and struct.unpack('<i',u.mem_read(cw+0x98,4))[0]==150 and half(cw+0x32)==3 and hid(0xc768)==0 and label(cw)==b'CURVE','Curve pot (labelled CURVE) sits right of SAT with track 4 stored value')
 check(all(hid(o) for o in OTHERS),'every other pot of both squares is hidden')
 c=encoder(0,160)
 v=struct.unpack('<i',u.mem_read(w+0x98,4))[0]
 flush()
 check(c==[(3,TID,v)],'encoder 1 sends exactly one Sat command to the audio core')
 check(v>300 and call(u,0x8120234,APP+0xc08+3*0x30,TID)==v,'encoder 1 edits Sat and the shared model stores it')
-for i in (1,2,3):check(encoder(i,160)==[],'encoder '+str(i+1)+' reaches only a hidden pot: no edit')
+c=encoder(2,160)
+cv=struct.unpack('<i',u.mem_read(cw+0x98,4))[0]
+flush()
+check(c==[(3,CID,cv)],'encoder 3 sends exactly one Curve command to the audio core')
+check(cv>150 and call(u,0x8120234,APP+0xc08+3*0x30,CID)==cv and call(u,0x8120234,APP+0xc08+3*0x30,TID)==v,'encoder 3 edits Curve only and the shared model stores it')
+for i in (1,3):check(encoder(i,160)==[],'encoder '+str(i+1)+' reaches only a hidden pot: no edit')
+for i in range(400):encoder(2,160)
+flush()
+check(call(u,0x8120234,APP+0xc08+3*0x30,CID)==1000,'Curve stops at full hard clip (1000)')
 bind(7)
-check(half(w+0x94)==TID and half(w+0x32)==7 and all(hid(o) for o in OTHERS),'track change keeps the Sat section on the new track')
+check(half(w+0x94)==TID and half(w+0x32)==7 and half(cw+0x94)==CID and half(cw+0x32)==7 and struct.unpack('<i',u.mem_read(cw+0x98,4))[0]==350 and all(hid(o) for o in OTHERS),'track change keeps Sat and Curve on the new track')
 press_a()
 check(page()==5,'third A press stays on the first section page')
 native_first('third A press')
@@ -58,7 +67,7 @@ check(half(T+0xde48+0x94)==0x1ae and half(T+0xde48+0x32)==7,'Gate pot restored b
 press_a();check(page()==6,'cycle repeats: second square');press_a()
 check(half(w+0x94)==TID,'cycle repeats: Sat section')
 call(u,S['ts_track_section'],T,1)
-check(u32(u,T+0xebbc)==1 and half(w+0x94)==4 and not any(hid(o) for o in OTHERS),'auto-flip or page entry leaves the Sat section cleanly')
+check(u32(u,T+0xebbc)==1 and half(w+0x94)==4 and half(cw+0x94)==0x63 and label(cw)==b'PAN' and not any(hid(o) for o in OTHERS),'auto-flip or page entry leaves the Sat section cleanly')
 press_a();press_a()
 check(half(w+0x94)==TID,'Sat section again before Main')
 bind(12)

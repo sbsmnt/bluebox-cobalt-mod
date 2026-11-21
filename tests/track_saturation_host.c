@@ -8,10 +8,13 @@ static struct track_sat t;
 static float l[40],r[40];
 /* Independent double-precision reference of the master Soft curve. */
 static double curve(double x){return x>3?1:x<-3?-1:x*(27+x*x)/(27+9*x*x);}
-static double reference(double x,int drive) {
- double d=drive/1000.,g=pow(2,6*d),mix=fmin(d*20,1),k=.2/curve(g*.2);
- return x+mix*(curve(x*g)*k-x);
+static double hard(double x){return fmax(-1,fmin(1,x));}
+static double shape(double x,int c){double m=c/1000.;return (1-m)*curve(x)+m*hard(x);}
+static double reference_curve(double x,int drive,int c) {
+ double d=drive/1000.,g=pow(2,6*d),mix=fmin(d*20,1),k=.2/shape(g*.2,c);
+ return x+mix*(shape(x*g,c)*k-x);
 }
+static double reference(double x,int drive){return reference_curve(x,drive,0);}
 static void fill(float a,float b){for(unsigned i=0;i<40;i++){l[i]=i<32?a:1234.f;r[i]=i<32?b:1234.f;}}
 static void run(float a,float b,unsigned n) {
  fill(a,b);ts_process(&t,l,r,n);
@@ -19,7 +22,7 @@ static void run(float a,float b,unsigned n) {
  for(unsigned i=32;i<40;i++)assert(l[i]==1234.f&&r[i]==1234.f);
 }
 int main(void) {
- ts_reset(&t,0);CHECK(t.drive==0&&!ts_active(&t),"default is Off");
+ ts_reset(&t,0);CHECK(t.drive==0&&t.curve==0&&!ts_active(&t),"default is Off with the Soft curve");
  run(.123f,-.456f,32);CHECK(l[0]==.123f&&r[31]==-.456f,"Off leaves stereo samples exact");
  fill(NAN,INFINITY);ts_process(&t,l,r,32);CHECK(isnan(l[0])&&isinf(r[0]),"Off bypass does not even sanitize samples");
  static const int drives[]={1,10,50,300,700,1000};
@@ -38,6 +41,22 @@ int main(void) {
  run(.7f,-.7f,32);CHECK(!ts_active(&t)&&l[0]==.7f&&r[31]==-.7f,"settled Off is bit-exact again");
  ts_event(&t,5000);CHECK(t.drive==1000,"upper malformed drive clamps");
  ts_event(&t,-5);CHECK(t.drive==0,"lower malformed drive clamps to Off");
+ static const int curves[]={0,1,250,500,999,1000};
+ for(unsigned j=0;j<6;j++)
+  for(unsigned c=0;c<6;c++) {
+   ts_reset(&t,0);ts_event(&t,drives[j]);ts_curve(&t,curves[c]);
+   for(unsigned b=0;b<3;b++)run(.8f,-.05f,32);
+   assert(fabs(l[31]-reference_curve(.8,drives[j],curves[c]))<6e-5&&fabs(r[31]-reference_curve(-.05,drives[j],curves[c]))<6e-5);
+  }
+ CHECK(1,"steady audio matches the Soft-to-hard morph reference at six drives x six curves");
+ ts_reset(&t,0);ts_event(&t,1000);ts_curve(&t,1000);for(unsigned b=0;b<3;b++)run(.9f,.001f,32);
+ CHECK(fabsf(l[31]-.2f)<1e-6f&&fabsf(r[31]-.001f*64.f*.2f)<1e-6f,"full hard clip: loud input pinned at the 0.2 reference, quiet input stays linear");
+ ts_reset(&t,0);ts_event(&t,300);for(unsigned b=0;b<3;b++)run(.6f,-.6f,32);
+ float soft=l[31];ts_curve(&t,1000);run(.6f,-.6f,32);
+ CHECK(l[31]!=soft&&fabsf(l[31]+r[31])<1e-7f,"curve edit takes effect within one block and stays symmetric");
+ ts_curve(&t,5000);CHECK(t.curve==1000,"upper malformed curve clamps");
+ ts_curve(&t,-5);CHECK(t.curve==0,"lower malformed curve clamps to Soft");
+ ts_reset(&t,0);ts_curve(&t,1000);run(.123f,-.456f,32);CHECK(l[0]==.123f&&r[31]==-.456f,"drive 0 is an exact bypass on any curve");
  ts_reset(&t,0);ts_event(&t,600);run(.5f,0,32);
  float saved=t.g;fill(.5f,.5f);ts_process(&t,l,r,0);CHECK(t.g==saved&&l[0]==.5f,"empty block keeps state and samples");
  fill(.5f,.5f);ts_process(&t,l,l,32);CHECK(fabsf(l[3]-(float)reference(.5,600))<6e-5f,"aliased stereo pointer is processed once");
@@ -47,12 +66,13 @@ int main(void) {
  for(unsigned b=0;b<100000;b++) {
   rng=rng*1664525u+1013904223u;
   if(!(b%17))ts_event(&t,(int)(rng%1400)-200);
+  if(!(b%23))ts_curve(&t,(int)((rng>>8)%1400)-200);
   unsigned n=1+(rng%32);
   for(unsigned i=0;i<32;i++){l[i]=(float)((int)((rng>>(i%16))%2000u)-1000)*.004f;r[i]=-l[i]*.7f;}
   ts_process(&t,l,r,n);
   for(unsigned i=0;i<n;i++)assert(isfinite(l[i])&&fabsf(l[i])<=4.1f&&isfinite(r[i]));
   assert(isfinite(t.g)&&t.mix>=0.f&&t.mix<=1.f);
  }
- CHECK(1,"100000 randomized drive/block-size/level transitions stay finite and bounded");
+ CHECK(1,"100000 randomized drive/curve/block-size/level transitions stay finite and bounded");
  printf("%u track saturation host checks passed under ASan/UBSan.\n",checks);
 }

@@ -4,11 +4,12 @@
 
 - **Track saturation:** a Soft saturation on every track (same curve and
   level compensation as the master Soft mode), before the track's gate and
-  EQ. On TRACK, A cycles first square → second square → a Sat page (one
-  SAT pot, everything else hidden). Saved in the project
-  (`trksat`) and in scenes; 0 is an exact bypass. Uses flash `0x080c8000`,
-  backup SRAM `0x38800c00` (M7) and `0x38800ce0` (TRACK page state, M4),
-  parameter `0x1ba`; patches the TRACK A calls `0x0812390e`/`0x0812391a`
+  EQ, with a CURVE control morphing from Soft to a hard clip. On TRACK, A
+  cycles first square → second square → a Sat page (SAT and CURVE pots,
+  everything else hidden). Saved in the project (`trksat`, `trkcurve`) and
+  in scenes; Sat 0 is an exact bypass. Uses flash `0x080c8000`, backup SRAM
+  `0x38800c00` (M7) and `0x38800ce0` (TRACK page state, M4), parameters
+  `0x1ba` (Sat) and `0x1bb` (Curve); patches the TRACK A calls `0x0812390e`/`0x0812391a`
   and the section call `0x081345fe`.
 
 ## v1.2.0

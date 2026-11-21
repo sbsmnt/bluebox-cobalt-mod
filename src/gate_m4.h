@@ -1,16 +1,18 @@
 /* Gate on MIXER sends page and beside OUT2 in the native Track controls. */
 #define NG_ID4 0x1aeu
 #define TS_ID4 0x1bau /* per-track saturation (TRACK Sat page, trsat_page_m4.h) */
+#define TC_ID4 0x1bbu /* its curve: Soft (0) to hard clip (1000) */
 #include "gate_diag_ui.h"
 void gate_default(void *set,unsigned id,int value) {
     STOCK_ADD(set,id,value);STOCK_ADD(set,NG_ID4,-96000);STOCK_ADD(set,TS_ID4,0);
+    STOCK_ADD(set,TC_ID4,0);
 }
 /* Match the native sends-group visibility in 0x0812e706: setting 0
  * displays the six-output group; nonzero displays the five-output group.
  * Reversing this selects OUT3 when the visible sixth Gate button is pressed. */
 static unsigned gate_quad(void) {return fw_get((uint8_t *)0x300173d0u+0xe78,0x18c)==0;}
-/* Per-track controls edited through the shared commit: Gate and Sat. */
-static unsigned mix_track_id(unsigned id) {return id==NG_ID4 || id==TS_ID4;}
+/* Per-track controls edited through the shared commit: Gate, Sat, Curve. */
+static unsigned mix_track_id(unsigned id) {return id==NG_ID4 || id==TS_ID4 || id==TC_ID4;}
 static void mix_knob_bind(uint8_t *w,unsigned ch,unsigned id,int value) {
     ((void (*)(void *,unsigned,int,unsigned))0x08127b85u)(w,id,value,1);
     *(uint16_t *)(w+0x32)=(uint16_t)ch;
@@ -104,7 +106,7 @@ static void gate_commit(uint16_t ch,int value);
 
 static void mix_commit(uint16_t ch,unsigned id,int value) {
     if(ch>=12)return;
-    int lo=id==TS_ID4?0:-96000,hi=id==TS_ID4?1000:-12000;
+    int lo=id==NG_ID4?-96000:0,hi=id==NG_ID4?-12000:1000;
     if(value<lo)value=lo;
     if(value>hi)value=hi;
     ((void (*)(void *,uint16_t *,unsigned,int,unsigned))0x08124b45u)

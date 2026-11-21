@@ -200,17 +200,24 @@ the fader exactly when the gate opens.
 
 ### Track saturation
 
-A Soft saturation on every track, with the same curve as the master **Soft**
-mode: drive is level-compensated, so turning it up adds harmonics rather
-than volume. 0 is a true bypass. It runs before the track's gate and EQ, so
-the gate listens to the saturated signal.
+A saturation on every track, starting from the same curve as the master
+**Soft** mode: drive is level-compensated, so turning it up adds harmonics
+rather than volume. 0 is a true bypass. It runs before the track's gate and
+EQ, so the gate listens to the saturated signal.
 
-Set it on TRACK: the A button (knob focus) now cycles three control pages,
-first square → second square → **Sat** → first square. The Sat page shows a
-single **SAT** pot in the first square's place, on the first knob; every
-other pot is hidden. It follows the selected track. Leaving and re-entering
-TRACK returns to the first square. Main has no Sat. The amount is saved in the project (`trksat`),
-captured by scenes and recalled by Program Change.
+| Control | What it does |
+|---|---|
+| SAT | Amount of saturation. 0 is a true bypass, whatever the curve |
+| CURVE | Shape of the curve, morphing from the smooth **Soft** curve (0 %) to a **hard clip** (100 %). Hard clipping leaves quiet signals clean and flattens peaks, so it sounds harsher; the level stays matched across the morph |
+
+Set them on TRACK: the A button (knob focus) now cycles three control pages,
+first square → second square → **Sat** → first square. The Sat page shows
+**SAT** (first knob) and **CURVE** (third knob) in the first square's
+bottom row; every other pot is hidden. Both follow the selected track.
+Leaving and re-entering TRACK returns to the first square. Main has no Sat.
+Both values are saved in the project (`trksat`, `trkcurve`), captured by
+scenes and recalled by Program Change. Older projects load with the Soft
+curve.
 
 ### Phones AUTO cue
 

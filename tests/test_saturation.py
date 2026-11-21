@@ -15,7 +15,7 @@ def definitions(image):
 a,old=definitions(stock);b,new=definitions(patched)
 lo=0x43*28;hi=lo+28
 check(old[lo:hi]==bytes(28),'native desktop definition slot 0x43 is unused in stock')
-check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(523) if i not in [0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1bb),0x178]),'native parameter definitions outside the declared extensions (incl. exp.8 Tape Lo C 0x1b9, per-track Sat 0x1ba, Phones Src AUTO 0x178) are preserved')
+check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(523) if i not in [0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1bc),0x178]),'native parameter definitions outside the declared extensions (incl. exp.8 Tape Lo C 0x1b9, per-track Sat 0x1ba/Curve 0x1bb, Phones Src AUTO 0x178) are preserved')
 id,kind=struct.unpack('<HB',new[lo:lo+3]);label=u32(b,0xc0010000+lo+4);key=u32(b,0xc0010000+lo+24)
 def string(u,p):return bytes(u.mem_read(p,64)).split(b'\0')[0]
 check(id==0x43 and kind==8 and string(b,label)==b'Saturate:','native knob definition has expected id/type/label')
@@ -25,6 +25,10 @@ lo=0x1ba*28
 check(old[lo:lo+28]==bytes(28),'native desktop definition slot 0x1ba is unused in stock')
 id,kind=struct.unpack('<HB',new[lo:lo+3])
 check(id==0x1ba and kind==8 and string(b,u32(b,0xc0010000+lo+4))==b'Sat:' and struct.unpack('<ii',new[lo+16:lo+24])==(0,1000) and string(b,u32(b,0xc0010000+lo+24))==b'trksat','per-track Sat knob definition: id/type/label/range/project key')
+lo=0x1bb*28
+check(old[lo:lo+28]==bytes(28),'native desktop definition slot 0x1bb is unused in stock')
+id,kind=struct.unpack('<HB',new[lo:lo+3])
+check(id==0x1bb and kind==8 and string(b,u32(b,0xc0010000+lo+4))==b'Curve:' and struct.unpack('<ii',new[lo+16:lo+24])==(0,1000) and string(b,u32(b,0xc0010000+lo+24))==b'trkcurve','per-track Curve knob definition: id/type/label/range/project key')
 
 def parameters(image,kind):
  u=machine(image);stub(u,0x8103128,lambda u:u.reg_write(UC_ARM_REG_R0,0xc0010000))
@@ -33,7 +37,7 @@ def parameters(image,kind):
  return u,[struct.unpack('<H2xi',u.mem_read(0xc0010000+8*i,8)) for i in range(n)],cap
 for kind in range(1,9):
  a,old,cap=parameters(stock,kind);b,new,cap=parameters(patched,kind)
- expected=([(0x33,400),(0x39,400),(0xe,120),(0xcb,1000),(0x4a,0),(0x3a,0),(0x3d,0),(0xca,1),(0x35,1),(0x36,1),(0x4b,0),(0x37,0),(0x34,6),(0x1a0,5),(0x1a1,250),(0x1a2,80),(0x1a3,4),(0x1a4,0),(0x1a5,0),(0x1a6,0),(0x1a7,350),(0x1a8,700),(0x1a9,300),(0x1aa,400),(0x1ab,650),(0x1ac,6000),(0x1ad,0),(0x1b9,20)] if kind==4 else old+([(0x43,0),(0x1b6,0),(0x1b7,500),(0x1b8,0)] if kind==2 else [(0x1ae,-96000),(0x1ba,0)] if kind==1 else list(zip(range(0x1af,0x1b6),[350,600,750,250,200,5500,120])) if kind==5 else []))
+ expected=([(0x33,400),(0x39,400),(0xe,120),(0xcb,1000),(0x4a,0),(0x3a,0),(0x3d,0),(0xca,1),(0x35,1),(0x36,1),(0x4b,0),(0x37,0),(0x34,6),(0x1a0,5),(0x1a1,250),(0x1a2,80),(0x1a3,4),(0x1a4,0),(0x1a5,0),(0x1a6,0),(0x1a7,350),(0x1a8,700),(0x1a9,300),(0x1aa,400),(0x1ab,650),(0x1ac,6000),(0x1ad,0),(0x1b9,20)] if kind==4 else old+([(0x43,0),(0x1b6,0),(0x1b7,500),(0x1b8,0)] if kind==2 else [(0x1ae,-96000),(0x1ba,0),(0x1bb,0)] if kind==1 else list(zip(range(0x1af,0x1b6),[350,600,750,250,200,5500,120])) if kind==5 else []))
  check(new==expected,'native set kind '+str(kind)+': correct master/delay defaults and preserved other kinds')
  check(len(new)<=cap,'native set kind '+str(kind)+': entries stay within allocated capacity')
  if kind==2:
@@ -85,15 +89,15 @@ check(call(u,0x8120234,SET,0x43)==0,'older project without mstdrive retains safe
 check([call(u,0x8120234,SET,pid) for pid in (0x1b6,0x1b7,0x1b8)]==[0,500,0],'alpha.5 project without new keys retains Soft/neutral Tone/unity trim')
 # Per-track saturation round-trips through a channel (kind 1) table.
 CH=0x24030000;u.mem_write(TYPE,b'\x01');call(u,0x81202b8,CH,TYPE)
-check(call(u,0x8120234,CH,0x1ba)==0,'new channel table starts with per-track Sat Off')
-call(u,0x8120264,CH,0x1ba,640);w32(u,CH,VTYPE);saved.clear()
+check(call(u,0x8120234,CH,0x1ba)==0 and call(u,0x8120234,CH,0x1bb)==0,'new channel table starts with per-track Sat Off and the Soft curve')
+call(u,0x8120264,CH,0x1ba,640);call(u,0x8120264,CH,0x1bb,420);w32(u,CH,VTYPE);saved.clear()
 stub(u,0x80dfe00,lambda u:u.reg_write(UC_ARM_REG_R0,1))
 call(u,0x8120b84,XML,XML,CH)
-check(saved.get('trksat')==640,'native XML writer emits trksat=640 for a track')
-call(u,0x8120264,CH,0x1ba,0);call(u,0x8120c3c,XML,CH)
-check(call(u,0x8120234,CH,0x1ba)==640,'native XML reader restores trksat')
-saved.pop('trksat');call(u,0x8120264,CH,0x1ba,0);call(u,0x8120c3c,XML,CH)
-check(call(u,0x8120234,CH,0x1ba)==0,'older project without trksat keeps per-track Sat Off')
+check(saved.get('trksat')==640 and saved.get('trkcurve')==420,'native XML writer emits trksat=640 and trkcurve=420 for a track')
+call(u,0x8120264,CH,0x1ba,0);call(u,0x8120264,CH,0x1bb,0);call(u,0x8120c3c,XML,CH)
+check(call(u,0x8120234,CH,0x1ba)==640 and call(u,0x8120234,CH,0x1bb)==420,'native XML reader restores trksat and trkcurve')
+saved.pop('trksat');saved.pop('trkcurve');call(u,0x8120264,CH,0x1ba,0);call(u,0x8120264,CH,0x1bb,0);call(u,0x8120c3c,XML,CH)
+check(call(u,0x8120234,CH,0x1ba)==0 and call(u,0x8120234,CH,0x1bb)==0,'older project without trksat/trkcurve keeps Sat Off and the Soft curve')
 
 # Saturation scalar reference, independent Python implementation.
 def curve(x):return 1. if x>3 else -1. if x< -3 else x*(27+x*x)/(27+9*x*x)

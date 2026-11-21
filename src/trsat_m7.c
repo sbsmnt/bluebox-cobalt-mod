@@ -1,6 +1,6 @@
-/* Per-track Soft saturation ahead of the per-track gate and the native
- * channel EQ: sat -> gate -> EQ, so the gate detects what it gates. Main uses
- * the same EQ class and is never saturated here. */
+/* Per-track saturation (Soft morphing to hard clip) ahead of the per-track
+ * gate and the native channel EQ: sat -> gate -> EQ, so the gate detects what
+ * it gates. Main uses the same EQ class and is never saturated here. */
 #include "shared.h"
 #include "track_saturation.h"
 #define TS_MAGIC 0x54534131u
@@ -39,7 +39,10 @@ unsigned tsat_process(uint8_t *obj,void *ctx) {
     void *q=((void *(*)(void *,unsigned))0x080532d5u)(ctx,ch);
     struct ts_ev ev;
     for(unsigned i=0;((int (*)(void *,unsigned,void *))0x0804e1b9u)(q,i,&ev);i++)
-        if(ev.type==0x39 && ev.target==ch && ev.id==TS_ID)ts_event(t,ev.value);
+        if(ev.type==0x39 && ev.target==ch) {
+            if(ev.id==TS_ID)ts_event(t,ev.value);
+            else if(ev.id==TS_CURVE_ID)ts_curve(t,ev.value);
+        }
     if(ts_active(t)) {
         unsigned port=(*(unsigned (**)(void *))(*(uint32_t *)obj+0x54))(obj);
         struct ts_bus *bus=((struct ts_bus *(*)(void *,unsigned))0x0805331du)(ctx,port);

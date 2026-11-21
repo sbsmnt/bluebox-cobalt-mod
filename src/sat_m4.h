@@ -36,6 +36,7 @@ void sat_defs(void *table,unsigned id,unsigned type,const char *label,int min,in
     STOCK_DEF(table,T_WILD,4,"Wild:",0,1,"tapewild");
     STOCK_DEF(table,0x1ae,7,"Gate:",-96000,-12000,"ngthreshold");
     STOCK_DEF(table,0x1ba,8,"Sat:",0,1000,"trksat"); /* per-track saturation */
+    STOCK_DEF(table,0x1bb,8,"Curve:",0,1000,"trkcurve"); /* Soft -> hard clip */
     /* Keep the original style ordinals; only the final row is experimental. */
     static const char *const styles[]={"Tight Ambience","Bright Room","Large Room","Wide Slap","Notchy Ambiance","Reso Room","Marble Hall","Chamber","Dark Hall","Small Hall","Gated","Arena","Long Bright Bloom","Gravitas","Clouds","Gazer"};
     ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
