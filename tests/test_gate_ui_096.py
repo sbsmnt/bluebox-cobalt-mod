@@ -33,8 +33,6 @@ for quad in [0,1]:
  if quad:check([cs(P+0xc444+i*0xa0+0x65) for i in range(7) if i!=6]==[b'Pan',b'FX1',b'FX2',b'CUE',b'O 2',b'O 3'],'OUT3 present: seven buttons, OUT2/OUT3 shortened to O 2/O 3')
  else:check(cs(P+0xc304+0x65)==b'OUT2','six buttons: OUT2 keeps its native label')
  # Actual native child release dispatch and patched range/selection calls.
- # From OUT1: pressing Gate while Gate is shown switches to Sat (test_track_saturation_ui.py).
- call(u,S['gate_mix_select'],P,1)
  e=0x24062000;u.mem_write(e,struct.pack('<6I',2,0,0,0x163 if quad else 0x162,0,0))
  call(u,0x812e468,P,e)
  check(struct.unpack('<H',u.mem_read(P+0xbca0,2))[0]==0x1ae,'native sends button opens Gate '+str(quad))

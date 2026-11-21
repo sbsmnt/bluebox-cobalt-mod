@@ -129,15 +129,17 @@ add('mixer node process pointer records the mixer',0x0806af38,struct.pack('<I',0
 add('Phones Src three choices',0x081358dc,bytes.fromhex('0223'),bytes.fromhex('0323'))
 add('Phones Src CUE MAIN AUTO list',0x08135b28,struct.pack('<I',0x0814bf34),struct.pack('<I',cues['cue_phones_names']))
 add('MIXER sends Gate selector',0x0814b7f4,bytes(2),struct.pack('<H',0x1ae))
-# Eighth sends selector (spare halfword before the first-page table): Sat.
-add('MIXER sends Sat selector',0x0814b7f6,bytes(2),struct.pack('<H',0x1ba))
 for at in [0x0812e4c0,0x0812e4d0]:
  add('MIXER seventh button range '+hex(at),at,bytes.fromhex('0528' if at==0x0812e4c0 else '0529'),bytes.fromhex('0628' if at==0x0812e4c0 else '0629'))
-# Button presses may switch Gate to Sat; the page rebuild restores the saved index.
-add('MIXER sends selection 0x812e4d8',0x0812e4d8,branch(0x0812e4d8,0x0812e2e0),branch(0x0812e4d8,symbols(4)['gate_mix_press']))
-add('MIXER sends selection 0x812e6a4',0x0812e6a4,branch(0x0812e6a4,0x0812e2e0),branch(0x0812e6a4,symbols(4)['gate_mix_select']))
+for at in [0x0812e4d8,0x0812e6a4]:
+ add('MIXER sends selection '+hex(at),at,branch(at,0x0812e2e0),branch(at,symbols(4)['gate_mix_select']))
 for at in [0x081331c0,0x081331dc,0x081331fe]:
  add('Track Gate knob binding '+hex(at),at,branch(at,0x081328f8),branch(at,symbols(4)['gate_track_bind']))
+# TRACK third section (Sat): A cycles first -> second -> Sat -> first, and
+# every section change passes the wrapper that enters/leaves the Sat section.
+for at in [0x0812390e,0x0812391a]:
+ add('TRACK A section cycle '+hex(at),at,branch(at,0x08122508),branch(at,symbols(4)['ts_track_a']))
+add('TRACK section change',0x081345fe,branch(0x081345fe,0x081327cc),branch(0x081345fe,symbols(4)['ts_track_section']))
 # Gate uses native default/Vol metering. The earlier detector-input report
 # overrides are not installed; the compiled Gate processing stays unchanged.
 for at in [0x0812e830,0x08134586]:

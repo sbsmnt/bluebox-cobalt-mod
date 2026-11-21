@@ -205,9 +205,11 @@ mode: drive is level-compensated, so turning it up adds harmonics rather
 than volume. 0 is a true bypass. It runs before the track's gate and EQ, so
 the gate listens to the saturated signal.
 
-Set it in MIXER → Gate: press the Gate button (`NG` when OUT3 is present)
-again and the row switches to **Sat** (`SAT`); press once more to go back to
-Gate. Main has no Sat. The amount is saved in the project (`trksat`),
+Set it on TRACK: the A button (knob focus) now cycles three control pages,
+first square → second square → **Sat** → first square. The Sat page shows a
+single **SAT** pot in the first square's place, on the first knob; every
+other pot is hidden. It follows the selected track. Leaving and re-entering
+TRACK returns to the first square. Main has no Sat. The amount is saved in the project (`trksat`),
 captured by scenes and recalled by Program Change.
 
 ### Phones AUTO cue

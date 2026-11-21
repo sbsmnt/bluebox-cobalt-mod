@@ -66,5 +66,6 @@ void cpu_present(void *display,int layer,int a2,int a3) {
 #include "knob_theme.h"
 
 #include "gate_m4.h"
+#include "trsat_page_m4.h"
 
 #include "pcm24_m4.h"

@@ -23,9 +23,6 @@ for mode_value in (1,0,1):
  x,y,w,h=struct.unpack('<4i',u.mem_read(button+4,16))
  u.mem_write(TMP,struct.pack('<2i',x+w//2,y+h//2));w32(u,TMP+16,0)
  check(call(u,0x813a25e,group,TMP,TMP+16)==1 and u32(u,TMP+16)==button,'native coordinate hit resolves the displayed Gate button')
- # Start from OUT1: pressing Gate while Gate is already shown switches to Sat
- # (test_track_saturation_ui.py).
- call(u,S['gate_mix_select'],P,1)
  call(u,0x8137de0,button);call(u,0x8137e44,button)
  check(half(P+0xbca0)==0x1ae,'press/release on visible Gate selects Gate, never OUT3')
  for ch in (0,2,11):

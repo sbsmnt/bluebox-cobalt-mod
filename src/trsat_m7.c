@@ -9,7 +9,7 @@ struct tsat_bank {uint32_t magic;struct track_sat track[12];};
  * before the extended delay state at 0xd00. */
 #define TS_BANK ((struct tsat_bank *)0x38800c00u)
 _Static_assert(sizeof(struct track_sat)==16,"track saturation ABI");
-_Static_assert(0xc00+sizeof(struct tsat_bank)<=0xd00,"track saturation below the delay state");
+_Static_assert(0xc00+sizeof(struct tsat_bank)<=0xce0,"track saturation below the TRACK Sat section state (0xce0)");
 struct ts_bus {uint32_t cap,n;float *l,*r;uint8_t silent,stereo;};
 struct ts_ev {uint8_t type,pad[7];uint32_t target;uint16_t id,pad2;int32_t value;uint32_t pad3;};
 /* Gate payload entry points (gate_m7.c), resolved by build.sh. */
