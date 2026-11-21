@@ -1,6 +1,7 @@
-/* Per-track saturation (Soft morphing to hard clip) ahead of the per-track
- * gate and the native channel EQ: sat -> gate -> EQ, so the gate detects what
- * it gates. Main uses the same EQ class and is never saturated here. */
+/* Per-track saturation (Soft morphing to an overdriven hard clip) ahead of
+ * the per-track gate and the native channel EQ: sat -> gate -> EQ, so the
+ * gate detects what it gates. Main uses the same EQ class and is never
+ * saturated here. */
 #include "shared.h"
 #include "track_saturation.h"
 #define TS_MAGIC 0x54534131u

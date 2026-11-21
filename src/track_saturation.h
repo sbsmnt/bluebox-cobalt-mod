@@ -1,6 +1,6 @@
 /* Per-track saturation: the master Soft curve and level reference
- * (soft_sat.h), one instance per track, morphing towards a hard clip with
- * Curve. Drive is level-compensated, so it adds harmonics rather than volume.
+ * (soft_sat.h), one instance per track, morphing towards an increasingly
+ * overdriven hard clip with Curve. Drive is level-compensated, so it adds harmonics rather than volume.
  * Production DSP is also compiled for host tests. */
 #ifndef BLUEBOX_TRACK_SATURATION_H
 #define BLUEBOX_TRACK_SATURATION_H
@@ -15,9 +15,12 @@ static void ts_reset(struct track_sat *t,void *owner) {
 static int16_t ts_clamp(int value) {return (int16_t)(value<0?0:value>1000?1000:value);}
 static void ts_event(struct track_sat *t,int value) {t->drive=ts_clamp(value);}
 static void ts_curve(struct track_sat *t,int value) {t->curve=ts_clamp(value);}
-/* Curve m blends Soft (0) into a hard clip at +/-1 (1); m=0 is the Soft curve. */
+/* Curve m blends Soft (0) into a hard clip (1). The clip is fed up to 4x
+ * the driven signal as m rises, so full Curve clips far more headroom than
+ * a plain clip at the same drive. m=0 is the Soft curve. */
 static float ts_shape(float y,float m) {
-    float s=sat(y),c=y>1.f?1.f:y<-1.f?-1.f:y;
+    float s=sat(y),c=y*(1.f+3.f*m);
+    c=c>1.f?1.f:c<-1.f?-1.f:c;
     return s+m*(c-s);
 }
 /* Drive 0 with its fade finished is an exact bypass: samples are not touched. */

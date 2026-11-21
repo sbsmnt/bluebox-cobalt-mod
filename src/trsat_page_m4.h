@@ -1,8 +1,8 @@
 /* TRACK third control section: per-track Sat and its Curve on the left
  * square. A (knob focus) cycles first square -> second square -> Sat -> first.
  * The Sat section is the native first section (encoder routing, page 5)
- * with VOL rebound to Sat, PAN (encoder 3) to Curve and every other pot
- * hidden. */
+ * with VOL rebound to Sat, PAN (encoder 3) to Curve (Soft to hard clip)
+ * and every other pot hidden. */
 struct trk_sat_ui {uint8_t on,want;uint16_t ch;};
 #define TRK_SAT_UI ((volatile struct trk_sat_ui *)0x38800ce0u) /* M4 only */
 static const uint16_t ts_hidden[]={0xcb38,0xcf08,0xd2d8,0xd6a8,0xda78,0xde48};

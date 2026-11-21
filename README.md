@@ -208,7 +208,7 @@ EQ, so the gate listens to the saturated signal.
 | Control | What it does |
 |---|---|
 | SAT | Amount of saturation. 0 is a true bypass, whatever the curve |
-| CURVE | Shape of the curve, morphing from the smooth **Soft** curve (0 %) to a **hard clip** (100 %). Hard clipping leaves quiet signals clean and flattens peaks, so it sounds harsher; the level stays matched across the morph |
+| CURVE | Shape of the curve, morphing from the smooth **Soft** curve (0 %) to a **hard clip** (100 %). The clip is overdriven as CURVE rises — up to 4× at max, so it bites deeper than a plain clip. Quiet signals stay clean until they cross the wall; the level stays matched across the morph |
 
 Set them on TRACK: the A button (knob focus) now cycles three control pages,
 first square → second square → **Sat** → first square. The Sat page shows

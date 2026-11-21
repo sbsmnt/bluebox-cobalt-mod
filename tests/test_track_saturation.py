@@ -3,7 +3,7 @@ Real native EQ constructor/body/queue; allocator and final sink only stubbed."""
 from gate_fixture import *
 TS=0x38800c00;TSTRACK=TS+4;TSSTRIDE=16;TID=0x1ba;CID=0x1bb;TSYM=M['symbols']['trsat7']
 def curve(x):return 1. if x>3 else -1. if x< -3 else x*(27+x*x)/(27+9*x*x)
-def shape(x,c):m=c/1000;return (1-m)*curve(x)+m*max(-1.,min(1.,x))
+def shape(x,c):m=c/1000;return (1-m)*curve(x)+m*max(-1.,min(1.,x*(1+3*m)))
 def reference(x,drive,c=0):
  d=max(0,min(1000,drive))/1000;g=2**(6*d);mix=min(d*20,1);k=.2/shape(g*.2,c)
  return x+mix*(shape(x*g,c)*k-x)

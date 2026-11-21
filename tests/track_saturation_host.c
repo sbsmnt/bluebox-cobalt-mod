@@ -9,7 +9,7 @@ static float l[40],r[40];
 /* Independent double-precision reference of the master Soft curve. */
 static double curve(double x){return x>3?1:x<-3?-1:x*(27+x*x)/(27+9*x*x);}
 static double hard(double x){return fmax(-1,fmin(1,x));}
-static double shape(double x,int c){double m=c/1000.;return (1-m)*curve(x)+m*hard(x);}
+static double shape(double x,int c){double m=c/1000.;return (1-m)*curve(x)+m*hard(x*(1+3*m));}
 static double reference_curve(double x,int drive,int c) {
  double d=drive/1000.,g=pow(2,6*d),mix=fmin(d*20,1),k=.2/shape(g*.2,c);
  return x+mix*(shape(x*g,c)*k-x);
@@ -50,7 +50,7 @@ int main(void) {
   }
  CHECK(1,"steady audio matches the Soft-to-hard morph reference at six drives x six curves");
  ts_reset(&t,0);ts_event(&t,1000);ts_curve(&t,1000);for(unsigned b=0;b<3;b++)run(.9f,.001f,32);
- CHECK(fabsf(l[31]-.2f)<1e-6f&&fabsf(r[31]-.001f*64.f*.2f)<1e-6f,"full hard clip: loud input pinned at the 0.2 reference, quiet input stays linear");
+ CHECK(fabsf(l[31]-.2f)<1e-6f&&fabsf(r[31]-.001f*256.f*.2f)<1e-6f,"full hard clip: loud input pinned at the 0.2 reference, quiet input stays linear at 4x drive");
  ts_reset(&t,0);ts_event(&t,300);for(unsigned b=0;b<3;b++)run(.6f,-.6f,32);
  float soft=l[31];ts_curve(&t,1000);run(.6f,-.6f,32);
  CHECK(l[31]!=soft&&fabsf(l[31]+r[31])<1e-7f,"curve edit takes effect within one block and stays symmetric");
