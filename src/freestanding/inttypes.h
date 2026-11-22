@@ -1,0 +1,4 @@
+#ifndef COBALT_FREESTANDING_INTTYPES
+#define COBALT_FREESTANDING_INTTYPES
+#include <stdint.h>
+#endif

@@ -1,11 +1,16 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.2.0 - for bluebox desktop firmware 1.5.2**
+**v1.3.0-dev.1 - development build for bluebox desktop firmware 1.5.2**
 
-Cobalt is an unofficial firmware mod for the bluebox desktop. It adds delay
-modes, a new reverb, a per-track noise gate, master saturation, compressor
-meters, an overdub recording fix, mixer scenes with MIDI recall, MIDI
-controller sync and custom colour themes. The patcher runs locally: it takes your copy of the official
+> This is the `dev` branch: the next version while it is being tested on
+> hardware. The current release is
+> [v1.2.0 on `main`](https://github.com/sbsmnt/bluebox-cobalt-mod/tree/main).
+
+Cobalt is an unofficial firmware mod for the bluebox desktop. It adds a synth
+on every track, track insert effects, a DJ EQ and filter, delay modes, a new
+reverb, a per-track noise gate, master saturation, compressor meters, an
+analog clock on Out 2, an overdub recording fix, mixer scenes with MIDI
+recall, MIDI controller sync and custom colour themes. The patcher runs locally: it takes your copy of the official
 1.5.2 firmware and writes a new `BLUEBOX.BIN`. No firmware is distributed
 here.
 
@@ -13,6 +18,36 @@ here.
 
 > Cobalt is not made, endorsed or supported by 1010music. Keep a copy of your
 > working firmware and back up your projects before installing.
+
+## New in v1.3 (in development)
+
+- **Track inserts:** an insert effect on every track, in three groups:
+  **DRV** (CLIP, FOLD, WRAP), **FLTR** (LP, BP, HP, DJ, with resonance and
+  an envelope follower) and **SPEC** (frequency shifter SHFT, SPRD, RING and
+  resonator bank HARM, CHRD, BELL). Press A on TRACK to reach them.
+- **Synth tracks:** any track can play a built-in mono synth from MIDI,
+  with two engines (VA, from Mutable Instruments Plaits, and Cobalt's
+  Cluster), a resonant filter, an envelope, two LFOs and Drone. TRACK →
+  TRACK → TRACK opens it. A synth track needs no input.
+- **DJ EQ and filter:** a DJ-style 4- or 3-band EQ with kills and a
+  low-/high-pass filter on every track, with its own DJ view (the third EQ
+  press). A track with the DJ EQ at its centre costs no CPU.
+- **Out 2 clock:** PROJ → B → **Clk Out L / Clk Out R** send analog clock
+  pulses (1–24 PPQ) on Out 2 left and right for modular gear.
+- **Scenes** now also hold each track's insert and DJ EQ settings.
+- **MIDI Learn** works on all of Cobalt's controls: the FX1 delay modes,
+  Gazer, master saturation, the Gate threshold, the synth, the inserts and
+  the DJ knobs. A mapped CC on an FX control shows its value as you move it.
+- **User Settings** (TOOLS): Dim No Input, Track Knob 8 (Gate or OUT3) and
+  Hide DEFAULT.
+- **New-project template:** a project named `DEFAULT` becomes the starting
+  point for PROJ → New.
+
+Thanks to [Milan Wulf](https://github.com/milanwulf) for the DJ EQ ([pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2)). Details in
+[Track inserts](#track-inserts), [Synth tracks](#synth-tracks),
+[DJ EQ and filter](#dj-eq-and-filter), [Out 2 clock](#out-2-clock),
+[User Settings](#user-settings-and-the-default-template) and the
+[CHANGELOG](CHANGELOG.md).
 
 ## New in v1.2
 
@@ -62,7 +97,8 @@ Details in [Scenes](#scenes), [MIDI](#midi) and the [CHANGELOG](CHANGELOG.md).
 3. Pick a theme preset or build your own, then **Verify and prepare
    download**.
 4. Install the new `BLUEBOX.BIN` with the usual SD-card procedure.
-5. Check that the middle TOOLS field shows **Cblt 1.2**. The official version
+5. Check that the middle TOOLS field shows **Cblt 1.3d** (Cblt 1.2 for the
+   release). The official version
    field still shows 1.5.2.
 
 To go back, tick **Restore the original** and choose your Cobalt
@@ -189,6 +225,179 @@ front.
 | Rate mHz | Modulation speed, 10–2000 mHz (0.01–2 Hz) |
 | Hi C / Lo C | High and low cut on the sound going into the reverb |
 
+### Track inserts
+
+Every track has an insert effect after its EQ and gate. On TRACK, **A**
+cycles the native left and right controls, then the insert's left and
+right controls. **INSRT** switches the insert on (it is off on a new track).
+The group button beside it (**DRV**, **FLTR**, **SPEC**) chooses the group,
+and the type knob steps through its types. Changing type or switching off
+fades through dry, so nothing clicks.
+
+| Group | Types | Knobs |
+|---|---|---|
+| **DRV** | **CLIP** (hard clip, dirtier over the top of Drive), **FOLD** (wavefolder), **WRAP** (wrap-around, anti-aliased) | Drive, Tone, Mix, Output |
+| **FLTR** | **LP**, **BP**, **HP**: resonant filters. **DJ**: one knob, centre off, left low-pass, right high-pass | Cutoff (shown in Hz), **RES** (resonance, up to squelchy), **ENV** (envelope follower: right opens the filter on loud hits, left closes it), Output |
+| **SPEC** | **SHFT**, **SPRD**, **RING**: frequency shifter | **Shift** (0 Hz at the centre, up to about ±2.5 kHz), **FDBK** (feedback, up to 95 %), Mix, Output |
+| **SPEC** | **HARM**, **CHRD**, **BELL**: resonator bank | **Pitch** (C1–C7), **Decay** (50 ms–12 s), Mix, Output, and **Chord** for CHRD |
+
+**Frequency shifter.** It moves every partial by the same number of Hz.
+Harmonic sounds turn metallic, small shifts swirl and phase, and feedback
+gives a rising or falling barber-pole effect.
+- **SHFT:** shifts the whole track.
+- **SPRD:** shifts left and right in opposite directions. A mono track plays
+  it as SHFT.
+- **RING:** ring modulation, with both sidebands.
+
+**Resonator bank.** Eight tuned resonators ring at the Pitch note, fed by
+the track, spread across the stereo field.
+- **HARM:** the harmonic series.
+- **CHRD:** a chord. Chord picks MIN9, MAJ9, MIN7, MAJ7, SUS, 5THS, 4THS or
+  DIM, on the top-right encoder of the right page.
+- **BELL:** bell partials.
+
+Higher partials decay sooner, and a gentle limiter keeps loud input in
+check. Tails ring out naturally after the input stops. Once a tail has
+faded completely, the resonator stops using CPU until sound comes back.
+
+**Captions.** The SPEC knobs show their name at rest and their value while
+turning or while a mapped CC moves them.
+
+**Saving, scenes and cost**
+- Insert settings are saved per track and captured by scenes, and every
+  knob except the type can be MIDI-learned.
+- A drive or filter costs about 1–2 % CPU per track, a shifter about 3 %
+  (stereo) and a resonator about 2 %.
+
+### Synth tracks
+
+Every track can play a built-in synth instead of its input. Press **TRACK**
+on the TRACK page to cycle Normal → Sidechain → **Synth**, then tap **SYN
+ON**. The synth replaces the track's input; SYN OFF gives the input back.
+A synth track needs no input: with Input None it still plays (and is not
+greyed). VOL, Gain, the mixer, the gate, the inserts and the DJ EQ work on
+the synth as on any track.
+
+It is monophonic with last-note priority. It plays notes from USB and MIDI
+in on its **MIDI Ch**, with velocity. **Drone** plays a held note with no
+MIDI at all.
+
+**A** cycles four groups of knobs, two pages of left and right:
+
+| Page | Left | Right |
+|---|---|---|
+| 1 | SYN ON, **Timbre**, **Harm**, **Morph** | **Attack** (1 ms–2 s), **Cutoff** (20 Hz–20 kHz), **Release** (5 ms–5 s), **Reso** |
+| 2 | **LFO S** and **LFO A** (speed and amount), **LFO2 S** and **LFO2 A** | **Env %** (−100 to +100 %), **Env Atk**, **Env Dec**, **Seed** (Cluster only) |
+
+**B** opens the setup menu (B returns): **Engine**, **MIDI Ch**, **Drone**,
+**Env Dest**, **LFO Dest**, **LFO Shape**, **LFO Sync**, **LFO2 Dest**,
+**LFO2 Shape**, **LFO2 Sync**.
+
+**Engines**
+
+- **VA:** the virtual analog engine of Mutable Instruments Plaits: two
+  detunable oscillators morphing between saw, square and sync sounds.
+  Timbre, Harm and Morph are Plaits' own controls for it.
+- **Cluster:** Cobalt's own engine, four oscillators across 16 band-limited
+  waves.
+  - **Harm** is the span: left detunes them apart (up to ±12 semitones),
+    centre is unison, and right stacks them on scale degrees (thirds,
+    fourths, fifths).
+  - **Timbre** is the warp: centre is clean, left is phase modulation
+    around the four oscillators, right is cross-modulation with ring mod at
+    the end.
+  - **Morph** scans the waves.
+  - **Seed** (1–32) re-rolls the small detunes and phases of that track.
+
+**Shaping**
+
+- **Cutoff** and **Reso** set a low-pass filter with a gentle peak (no
+  self-oscillation).
+- **Attack** and **Release** shape the volume.
+- The modulation envelope (**Env %**, **Env Atk**, **Env Dec**, destination
+  **Env Dest**) and the two LFOs (rate 0.01–20 Hz, or a tempo division from
+  1/64 to 1 bar with **LFO Sync**) can each move Timbre, Harm, Morph or
+  Cutoff. Two sources on the same destination add up.
+- LFO shapes are Triangle, Sine, Square and Random.
+
+**Saving and MIDI**
+
+- Every setting is saved with the track in the project, and every knob can
+  be MIDI-learned. Cutoff, the LFO rates and the envelope times follow the
+  same curve by CC as on the encoder.
+- Scenes don't include synth settings.
+- **Cost:** each synth track uses roughly 6 % of the audio CPU.
+
+### DJ EQ and filter
+
+Every track has a DJ-style EQ and filter after its own EQ, gate and insert:
+
+| Control | What it does |
+|---|---|
+| High / Hi Mid / Lo Mid / Low | Four bands, 0 dB at the centre: left down to −26 dB (with the ISO curve the far left kills the band), right up to +6 dB |
+| Filter | Left: low-pass down to 40 Hz. Right: high-pass up to 10 kHz. Centre: off |
+| Res | Resonance of the filter corner |
+
+**Opening the DJ view**
+- Press **EQ** until the third view: EQ → EQ full screen → **DJ**.
+- The DJ view is laid out like TRACK: two blocks of four knobs, switched
+  with **A**. The first block is High, Hi Mid, Lo Mid and Low; the second
+  is Filter and Res.
+- Pick the track as on TRACK.
+- Turning a knob shows its value (dB, `KILL`, `LP`/`HP`, %) in its label.
+- The bands and the filter rest at their centre: turning across it stops
+  there, and leaving it takes a few more steps.
+- The level meter is hidden in this view.
+
+**Kills and Filter Reset**
+- The buttons on the right are **kills**, placed like the band knobs:
+  `Kill High`, `Kill Hi Mid`, `Kill Lo Mid` and `Kill Low` (`Kill Mid` with
+  3 bands).
+- A press kills the band. A second press returns it to the value it had
+  before (0 dB if it was killed with the knob).
+- While a band is killed, its button lights red and its knob label turns
+  red too.
+- **Filter Reset**, above the Filter knob, puts the filter back to Off (Res
+  stays). It is lit while the filter is on.
+- Kills and resets fade over about 10 ms, so they don't click.
+
+**Getting around**
+- **B** opens the DJ settings; B there returns to the DJ view.
+- Press **EQ** again to return to EQ, or **TRACK** for the TRACK page.
+- EQ remembers the DJ view when you come back from another page.
+
+**DJ settings** (B in the DJ view) apply to all tracks:
+
+| Setting | What it does |
+|---|---|
+| Bands | `4 Bands` (High, Hi Mid, Lo Mid, Low) or `3 Bands` (High, Mid, Low). With 3 bands the knobs keep their places (Mid where Hi Mid is, the Lo Mid place stays empty), and it costs less CPU |
+| Preset | Crossovers modelled on known mixers; the list follows the band count. 4 bands: `Default`, `Xone:92`, `Xone:96`, `DJM-V10`. 3 bands: `Default`, `DJM`, `Xone:42`, `Rane`, `Evo4`. A preset sets the ISO curve; changing a crossover by hand switches to `Custom` |
+| Curve | `ISO` (default): steep, phase-matched Linkwitz-Riley 4th-order bands that sum back to the input at 0 dB; the far left kills a band. `EQ`: gentler 2nd order, no kill |
+| Xover Lo / Mid / Hi | The crossovers (Mid only with 4 bands). Wider spacing gives deeper mid kills |
+| Filter Slope | `12 dB` or `24 dB` per octave |
+| Res Max | Caps the Res knob, 0–100 % |
+
+Presets use the mixers' published EQ band frequencies. The crossovers sit
+between neighbouring bands, so they recreate the band split, not the exact
+EQ shapes.
+
+**Saving and scenes.** All values are saved in the project and captured by
+scenes.
+
+**CPU**
+- A track with every DJ control at its centre is not processed at all and
+  costs nothing.
+- A track using the EQ costs about 3 % of the CPU with 4 bands (less with
+  3), and the filter adds about 0.6 %.
+- Turning a control away from the centre, or back, fades in or out over
+  10 ms, so there are no clicks.
+
+**MIDI learn** works on the DJ knobs; the kill and reset buttons can't be
+learned. Learned CCs follow the full range; the centre detent applies only
+to the bluebox encoders.
+
+Thanks to [Milan Wulf](https://github.com/milanwulf) for this feature ([pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2)).
+
 ### Noise gate
 
 A gate on every track. Set it on TRACK (GATE knob) or in MIXER → Gate (`NG`
@@ -196,7 +405,8 @@ when OUT3 is present). The
 threshold runs from −96 dB to −12 dB; the lowest setting is Off. It takes fine
 steps when turned slowly and speeds up when spun. MIXER → Gate meters show
 the level the gate listens to on the Gate fader's scale, so the meter crosses
-the fader exactly when the gate opens.
+the fader exactly when the gate opens. The threshold can be MIDI-learned on
+TRACK and MIXER, and TRACK shows the gate's state (OPN / CLS) as it moves.
 
 ### Phones AUTO cue
 
@@ -261,6 +471,35 @@ Both use a square-root scale, so small amounts of compression are easy to
 see. They show the larger of the two channels, held over about 20 ms. The
 fill colour is set in the theme editor (Compressor GR meter).
 
+### Out 2 clock
+
+PROJ → B has two rows, **Clk Out L** and **Clk Out R** (stock calls them
+Clock In and Clock Out). Each is Off or **1, 2, 4, 8, 12 or 24 PPQ**.
+
+**What a clock channel does**
+- A channel that is on sends 5 ms positive pulses on Out 2 left or right,
+  in place of that channel's audio.
+- A channel that is Off keeps Out 2's audio.
+- Pulses follow the bluebox tempo and run only while the transport plays,
+  including when the bluebox follows external MIDI clock.
+- Out 2's level knob sets the pulse height.
+
+Two channels give two clocks at different rates, for example 4 PPQ for a
+module's clock input and 1 PPQ for another.
+
+**How the screens show it**
+- On MIXER, the send that a clock channel has taken over is greyed:
+  - in OUT2 Mode Mono, Clk Out L takes the OUT2 send and Clk Out R the
+    OUT3 send;
+  - in Stereo, either channel takes the OUT2 send.
+- While Clk Out R is on, TRACK treats OUT3 as absent.
+
+**Saving.** The rates are saved with the project. Projects from before v1.3
+start with both Off, so no project loses its Out 2 audio.
+
+**Tested gear.** Tested with an O_C and an Endorphin.es Ghost. Out 2 is a
+line output, so check that your module accepts its pulse level.
+
 ### Overdub recording fix
 
 Stock 1.5.2 can stop with an error while overdubbing long takes because the
@@ -270,8 +509,9 @@ word-sized bursts instead of byte by byte. The audio is bit-identical.
 ### Scenes
 
 A scene is a snapshot of the mixer (track level, pregain, pan, sends, mute,
-solo, compressor, EQ and gate), the master and aux buses, every FX1/FX2
-parameter including the effect type, and the BPM. Each project holds up to
+solo, compressor, EQ and gate), each track's insert and DJ EQ settings, the
+master and aux buses, every FX1/FX2 parameter including the effect type, and
+the BPM. Synth settings are not part of scenes. Each project holds up to
 16, saved in the project file. Recalling a scene changes only the values
 that differ, without loading anything, so playback and recording carry on.
 
@@ -319,6 +559,28 @@ Also in TOOLS > **MIDI Settings**:
   over at once; a lower one only after 300 ms without clock from the current
   one. Start, stop, continue and song position follow the same input. The
   band shows the order when the setting is changed.
+
+**MIDI Learn** (EDIT → B → Learn) works on every Cobalt control: the FX1
+delay modes and Gazer, master saturation, the Gate threshold, the synth
+knobs and SYN ON, the insert knobs and INSRT, and the DJ knobs. Their CCs
+are also sent by Map CC Sync. A mapped CC on an FX1 or Gazer control shows
+its value with units (such as `-7 st` on Pitch) for three seconds, as a turn
+does.
+
+### User Settings and the DEFAULT template
+
+TOOLS → **User Settings** (tap it, or press B with it selected; B goes back):
+
+| Setting | What it does |
+|---|---|
+| Dim No Input | `On` (default): tracks with no input selected are greyed on the track headers. `Off`: no greying |
+| Track Knob 8 | `Gate` (default): TRACK's eighth knob is the Gate threshold. `OUT3`: it stays the stock OUT3 send. This setting only applies in OUT2 Mode Mono, and there A reaches the other one on a third TRACK page |
+| Hide DEFAULT | `On`: the template project (below) is left out of the PROJ list |
+
+**New-project template.** Save a project named `DEFAULT` (any case; a
+computer-made `_DEFAULT` works too). From then on, PROJ → File → **New**
+starts from it: its settings, routing and effects are kept, and clips and
+recordings are cleared. Without a `DEFAULT` project, New works as stock.
 
 ### Themes
 
@@ -378,6 +640,7 @@ deployment → Source: GitHub Actions**.
 | `tools/` | Release builder and patcher templates |
 | `tests/` | Emulator, host and patcher tests |
 | `themes/` | Theme presets as JSON |
+| `vendor/mutable/` | Mutable Instruments Plaits and stmlib sources (MIT) for the VA engine |
 | `docs/` | GitHub Pages copy of the patcher |
 | `.github/workflows/` | Checks and Pages deployment |
 | `patch_bluebox.html`, `patch_bluebox.py` | Ready-to-use patchers |
@@ -389,6 +652,9 @@ Euro by lexnels: https://github.com/lexnels/bluelex-bluebox-euro. The CPU
 load indicator, the MAIN → B compressor level and meter approach, the Soft
 master saturation, and the delay pitch and send to reverb were adapted from
 BlueLex, with every desktop address and hook traced independently.
+The synth's VA engine is from Mutable Instruments **Plaits** by Émilie
+Gillet (MIT licence, notices kept in `vendor/mutable/`). The DJ EQ is by
+[Milan Wulf](https://github.com/milanwulf).
 [NOTICE.md](NOTICE.md) has the full attribution and disclaimer.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

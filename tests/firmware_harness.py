@@ -23,10 +23,10 @@ def machine(image=patched,double=False,cpu_model=UC_CPU_ARM_CORTEX_M7):
  for a,n in [(0x08000000,0x200000),(0x20000000,0x20000),(0x24000000,0x80000),(0x30000000,0x48000),(0x38000000,0x10000),(0x38800000,0x1000),(0x40024000,0x1000),(0x58024000,0x1000),(0xe000e000,0x1000),(0xc0000000,0x2000000)]:u.mem_map(a,n)
  if double:u.reg_write(UC_ARM_REG_FPEXC,0x40000000)
  u.mem_write(0x8040000,image);u.reg_write(UC_ARM_REG_C1_C0_2,0xf00000);return u
-def call(u,a,*args,end=RET):
+def call(u,a,*args,end=RET,count=3000000):
  for r,v in zip([UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3],args):u.reg_write(r,v)
  u.reg_write(UC_ARM_REG_SP,0x2407f000);u.reg_write(UC_ARM_REG_LR,RET|1)
- u.emu_start(a|1,end,count=3000000)
+ u.emu_start(a|1,end,count=count)
  if u.reg_read(UC_ARM_REG_PC)!=end:raise AssertionError('Function timeout: '+hex(a))
  return u.reg_read(UC_ARM_REG_R0)
 def stub(u,a,fn):

@@ -6,7 +6,8 @@
  *   input is selected;
  * - the native output node (master, phones, OUT2/OUT3) reads that state,
  *   publishes it for the track header icons (cue_m4.c) and sets its native
- *   Phones Src MAIN copy flag before running. */
+ *   Phones Src MAIN copy flag before running.
+ * The same output wrapper draws the Out 2 clock (clock_m7.h). */
 #include "shared.h"
 #define CUE_MAGIC 0x43554534u
 #define CUE_SRC_ID 0x178u   /* aux1source: 0 CUE, 1 MAIN, 2 AUTO (Cobalt) */
@@ -48,6 +49,8 @@ static int cue_ram(uint32_t a,uint32_t n) {
            (a>=0xc0000000u && a<=0xc4000000u-n);
 }
 
+#include "clock_m7.h"
+
 unsigned cue_mixer_process(uint8_t *mixer,void *ctx) {
     cue_state()->mixer=mixer;
     return cue_mixer_native(mixer,ctx);
@@ -69,9 +72,15 @@ static void cue_scan(struct cue_state *s,unsigned *cued,unsigned *inputs) {
 unsigned cue_out_process(uint8_t *obj,void *ctx) {
     struct cue_state *s=cue_state();
     void *q=cue_queue(ctx,*(uint32_t *)(obj+0x18));
+    struct clk_state *k=clk_state();
     struct cue_event ev;
     for(unsigned i=0;cue_next(q,i,&ev);i++)
         if(ev.type==0x39 && ev.target==0x0cu && ev.id==CUE_SRC_ID)s->src=ev.value;
+    /* The PPQ rows are addressed to the stock clock node (index 24), whose
+     * queue still holds this block's events when the output node runs. */
+    void *g=cue_queue(ctx,CLK_NODE);
+    for(unsigned i=0;cue_next(g,i,&ev);i++)
+        if(ev.type==0x39 && ev.target==CLK_NODE)clk_event(k,ev.id,ev.value);
     unsigned cued,inputs;cue_scan(s,&cued,&inputs);
     if(s->shown!=cued || s->inputs!=inputs) {
         s->shown=cued;s->inputs=inputs;s->seq++;
@@ -86,5 +95,6 @@ unsigned cue_out_process(uint8_t *obj,void *ctx) {
         /* Native flag at +0x88: nonzero copies Main over the phones bus. */
         obj[0x88]=s->hold==0;
     }
+    clk_render(k,ctx);
     return cue_native(obj,ctx);
 }

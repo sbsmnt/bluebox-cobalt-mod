@@ -11,15 +11,15 @@ const ctx={document:{getElementById:id=>elements[id]},URL,Blob,atob};ctx.globalT
 let n=0;function check(c,msg){assert(c,msg);n++;console.log('PASS',msg);}
 function run(s){return vm.runInContext(s,ctx);}
 (async()=>{
-check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.2.0'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
-check(!html.includes('43.8%')&&!html.includes('CPU %'),'preview header has no CPU percentage');
+check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.1'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
+check(!html.includes("'35.2%'"),'preview header has no numeric CPU percentage (the diagnostic was removed)');
 const views=run('SCREEN_LIST.map(x=>x[0])'),show=v=>run('setView('+JSON.stringify(v)+')');
 check(views.length===27&&!views.includes('delay'),'27 photo-based screens, no invented FX1 Delay page');
 const keysUsed=new Set();
 for(const view of views){
  show(view);const svg=elements.blueboxScreen.innerHTML;
  check(svg.includes('<rect')&&svg.includes('<text')&&!svg.includes('undefined')&&!svg.includes('NaN'),'complete screen recreation '+view);
- check(svg.includes('#00c850')&&svg.includes('data-k="compressor"'),'fixed CPU meter and themed compressor bar '+view);
+ check(svg.includes('#00c850')&&!svg.includes('>35.2%<')&&svg.includes('data-k="compressor"'),'fixed CPU meter and themed compressor bar, no CPU number '+view);
  const keys=[...svg.matchAll(/data-k="([^"]+)"/g)].flatMap(x=>x[1].split(' '));keys.forEach(k=>keysUsed.add(k));
  check(keys.every(k=>manifest.theme.fields.some(f=>f.key===k)),'every tagged element maps to a theme control '+view);
  check(elements.screenName.textContent.length>0&&elements.blueboxScreen.ariaLabel.includes('Bluebox'),'screen name and label update '+view);
@@ -63,13 +63,28 @@ elements.previewDepth.value='rgb565';elements.previewDepth.onchange();check(!ele
 run("applyTheme({background:'#141414',text:'#141414',button_idle:'#141414',slot15:'#141414',knob:'#0b0b0b'})");check(elements.contrast.textContent.includes('low contrast'),'low-contrast feedback covers invisible text/knobs');
 elements.knobHex.value='#fff';elements.knobHex.oninput();check(elements.knobHex.ariaInvalid==='true'&&elements.contrast.textContent.includes('complete #RRGGBB'),'invalid hex is explained beside retained valid preview');
 check(!/<(?:script|link|iframe)[^>]+(?:src|href)\s*=\s*"(?!data:)/i.test(html)&&!html.includes('fetch('),'preview introduces no remote assets or network requests');
-check(html.includes('<title>Bluebox Cobalt mod</title>')&&html.includes('<h1>Bluebox Cobalt mod</h1>')&&!/Theme Studio|slot finder|not seen|experimental/i.test(html.replace(/<script>[\s\S]*<\/script>/,'')),'page is titled Bluebox Cobalt mod and carries no finder or experimental wording');
+check(html.includes('<title>Bluebox Cobalt mod (dev)</title>')&&html.includes('<h1>Bluebox Cobalt mod <span class="chip">dev</span></h1>')&&html.includes('Development build from the <code>dev</code> branch')&&html.includes('Cblt 1.3d'),'page identifies the development build and its TOOLS label');
 check(/<div class="toolbar"><label>Preset <select id="themePreset">[\s\S]*?<\/select><\/label><\/div>\n<div class="toolbar actions"><button id="themeReset"[^>]*>Reset<\/button><button id="themeExport"[^>]*>Export<\/button><button id="themeImport"/.test(html),'Reset, Export and Import sit in a row under the preset selector');
 check(/<details class="contrast"><summary>Contrast check<\/summary><small id="contrast">/.test(html),'contrast report is collapsible');
 check(html.includes('max-width:1500px')&&!html.includes('class="badge'),'page is up to 1500px wide with no status badges');
 let picks=0;elements.file.click=()=>picks++;elements.dropzone.onclick();check(picks===1,'clicking the dropzone opens the firmware picker');
 let prevented=0;const ev={preventDefault:()=>prevented++,dataTransfer:{files:[{name:'BLUEBOX.BIN',size:2097152}]}};elements.dropzone.ondragover(ev);elements.dropzone.ondrop(ev);
 check(prevented===2&&elements.file.files[0].name==='BLUEBOX.BIN'&&elements.fileName.textContent==='BLUEBOX.BIN · 2.00 MB','dropping a firmware file selects it and shows its name');
+// New in v1.3 feature docs: every tab renders its text, above the guide.
+check(html.indexOf('id="features"')>html.indexOf('id="go"')&&html.indexOf('id="features"')<html.indexOf('id="guide"')&&html.includes('href="#features"'),'New in v1.3 section sits between Generate and the guide, linked from the header');
+for(const t of run('FEATURES.map(f=>f[0])')){elements.features.onclick({target:{closest:s=>s==='[data-f-topic]'?{dataset:{fTopic:t}}:null}});
+ const body=elements.featBody.innerHTML;check(body.length>300&&!body.includes('undefined')&&elements.featTabs.innerHTML.includes('data-f-topic="'+t+'" aria-pressed="true"'),'feature tab '+t+' renders');}
+const fclick=(attr,v)=>elements.features.onclick({target:{closest:s=>s==='[data-'+attr+']'?{dataset:attr==='f-topic'?{fTopic:v}:attr==='f-kill'?{fKill:v}:{fSet:v}}:null}});
+check(run('FEATURES.map(f=>f[0]).join()')==='inserts,synth,dj,clock,user','feature tabs: inserts first, then synth, DJ EQ, clock, User Settings');
+fclick('f-topic','clock');fclick('f-set','l:3');fclick('f-set','r:0');fclick('f-set','mono:0');fclick('f-set','play:1');
+let fb=elements.featBody.innerHTML;check((fb.match(/class="fpulse"/g)||[]).length===16&&fb.includes('Off: Out 2 R plays audio')&&fb.includes('4 PPQ clock'),'clock: 4 PPQ on L draws 16 pulses in a bar, R Off keeps audio');
+fclick('f-set','play:0');fb=elements.featBody.innerHTML;check(!fb.includes('class="fpulse"')&&fb.includes('no pulses while stopped'),'clock: no pulses while the transport is stopped');
+fclick('f-set','play:1');fclick('f-set','r:6');fb=elements.featBody.innerHTML;check((fb.match(/class="fgrey"/g)||[]).length===2&&fb.includes('TRACK knob 8: Gate'),'clock Mono: both sends greyed, TRACK knob 8 is Gate');
+fclick('f-set','mono:1');fb=elements.featBody.innerHTML;check((fb.match(/class="fgrey"/g)||[]).length===1&&fb.includes('Stereo: one O 2 send'),'clock Stereo: one O 2 send greyed');
+fclick('f-topic','dj');fclick('f-kill','0');check(elements.featBody.innerHTML.includes('KILL LOW'),'DJ EQ: tapping a band kills it');fclick('f-kill','0');check(!elements.featBody.innerHTML.includes('KILL LOW'),'and a second tap brings it back');
+fclick('f-set','bands:1');check(elements.featBody.innerHTML.includes('>Mid<')&&elements.featBody.innerHTML.includes('3 kHz'),'DJ EQ 3 bands: Low, Mid, High split at 300 Hz / 3 kHz');
+fclick('f-topic','inserts');fclick('f-set','grp:2');fclick('f-set','type:4');fclick('f-set','chord:7');check(elements.featBody.innerHTML.includes('DIM on C2'),'inserts: CHRD plots the chosen chord');
+fclick('f-topic','synth');fclick('f-set','src:2');fclick('f-set','dest:2');check(elements.featBody.innerHTML.includes('→ Harm'),'synth: Env routed to Harm');
 // Scenes & MIDI guide under Generate: every topic renders a themed device screen.
 check(html.indexOf('id="guide"')>html.indexOf('id="go"'),'Scenes and MIDI guide sits under Generate');
 const gclick=(attr,v)=>elements.guide.onclick({target:{closest:s=>s==='[data-'+attr+']'?{dataset:attr==='g-topic'?{gTopic:v}:{gSet:v}}:null}});

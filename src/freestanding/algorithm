@@ -1,0 +1,9 @@
+#ifndef COBALT_FREESTANDING_ALGORITHM
+#define COBALT_FREESTANDING_ALGORITHM
+namespace std {
+template<typename In,typename Out> inline Out copy(In begin,In end,Out out){while(begin!=end)*out++=*begin++;return out;}
+template<typename It,typename T> inline void fill(It begin,It end,const T& value){while(begin!=end)*begin++=value;}
+template<typename T> inline const T& min(const T& a,const T& b){return b<a?b:a;}
+template<typename T> inline const T& max(const T& a,const T& b){return a<b?b:a;}
+}
+#endif

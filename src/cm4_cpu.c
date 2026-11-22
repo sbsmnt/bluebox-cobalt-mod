@@ -55,7 +55,9 @@ static void draw(const uint8_t *d) {
         for(unsigned x=0;x<3u;x++,p+=bpp) pixel(p,fmt,c);
     }
 }
+void synth_resync_tick(void);
 void cpu_present(void *display,int layer,int a2,int a3) {
+    synth_resync_tick();
     draw(STOCK_BACKBUFFER(display,layer));
     STOCK_FLIP(display,layer,a2,a3);
 }
@@ -66,5 +68,7 @@ void cpu_present(void *display,int layer,int a2,int a3) {
 #include "knob_theme.h"
 
 #include "gate_m4.h"
+#include "insert_m4.h"
+#include "synth_settings_m4.h"
 
 #include "pcm24_m4.h"

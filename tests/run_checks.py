@@ -22,7 +22,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
   print(('FAIL' if rc else 'OK'),name,flush=True)
   print('\n'.join(tail),flush=True)
   if rc:failed.append(name)
-for source,logname in [('granular_host.c','granular-host.log'),('delay_types_host.c','delay-types-host.log'),('gate_host.c','gate-host.log'),('shoegaze_host.c','shoegaze-host.log'),('tape_host.c','tape-host.log')]:
+for source,logname in [('granular_host.c','granular-host.log'),('delay_types_host.c','delay-types-host.log'),('gate_host.c','gate-host.log'),('shoegaze_host.c','shoegaze-host.log'),('tape_host.c','tape-host.log'),('insert_host.c','insert-host.log'),('dj_eq_host.c','dj-eq-host.log')]:
  with tempfile.TemporaryDirectory(prefix='bluebox-host-check-') as td:
   binary=str(pathlib.Path(td)/'host-check')
   subprocess.run(['cc','-std=c11','-O1','-g','-fno-omit-frame-pointer','-fsanitize=address,undefined',str(root/'tests'/source),'-lm','-o',binary],check=True)
@@ -31,5 +31,13 @@ for source,logname in [('granular_host.c','granular-host.log'),('delay_types_hos
   (root/'tests'/logname).write_bytes(p.stdout)
   print(p.stdout.decode(errors='replace'),end='')
   if p.returncode:failed.append(source+' ASan/UBSan')
+with tempfile.TemporaryDirectory(prefix='cobalt-synth-host-') as td:
+ binary=str(pathlib.Path(td)/'synth-check')
+ sources=['tests/synth_host.cc','vendor/mutable/plaits/dsp/engine/virtual_analog_engine.cc','vendor/mutable/stmlib/utils/random.cc','vendor/mutable/plaits/resources.cc','vendor/mutable/stmlib/dsp/units.cc']
+ subprocess.run(['g++','-std=c++11','-DTEST','-O1','-g','-fno-omit-frame-pointer','-fsanitize=address,undefined','-I'+str(root/'vendor/mutable'),'-I'+str(root/'src'),*[str(root/x) for x in sources],'-lm','-o',binary],check=True)
+ p=subprocess.run([binary],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,env=env|{'ASAN_OPTIONS':'detect_leaks=0'})
+ (root/'tests/synth-host.log').write_bytes(p.stdout)
+ print(p.stdout.decode(errors='replace'),end='')
+ if p.returncode:failed.append('synth host ASan/UBSan')
 if failed:raise SystemExit('FAILED: '+', '.join(failed))
 print('All emulator, patcher and sanitized host suites passed. No physical hardware or CPU-cycle measurement.')

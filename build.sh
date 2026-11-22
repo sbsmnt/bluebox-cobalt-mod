@@ -42,20 +42,57 @@ done
   -o build/delay7.elf build/delay7_main.o build/delay7_fast.o
 "$OBJCOPY" -O binary -j .cave build/delay7.elf build/delay7.bin
 "$NM" build/delay7.elf > build/delay7.symbols
-"$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
-  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
-  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 -T src/gate7.ld \
-  -o build/gate7.elf src/gate_m7.c
+"$CC" $M7_FLAGS -Os -c -o build/gate7_main.o src/gate_m7.c
+"$CC" $M7_FLAGS -O2 -fno-tree-loop-distribute-patterns -c -o build/insert7_fast.o src/insert_fast_m7.c
+"$CC" $M7_FLAGS -Wl,--build-id=none,-e,0 -T src/gate7.ld \
+  -o build/gate7.elf build/gate7_main.o build/insert7_fast.o
 "$OBJCOPY" -O binary -j .cave build/gate7.elf build/gate7.bin
 "$NM" build/gate7.elf > build/gate7.symbols
+# DJ EQ: hot per-sample filters, so -O2 like the other DSP loops.
+"$CC" $M7_FLAGS -O2 -fno-tree-loop-distribute-patterns -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=dly_construct=0x$(awk '$3=="dly_construct"{print $1}' build/delay7.symbols) \
+  -Wl,--defsym=gate_process=0x$(awk '$3=="gate_process"{print $1}' build/gate7.symbols) \
+  -T src/dj7.ld -o build/dj7.elf src/dj_m7.c
+"$OBJCOPY" -O binary -j .cave build/dj7.elf build/dj7.bin
+"$NM" build/dj7.elf > build/dj7.symbols
 "$CC" -mcpu=cortex-m7 -mfpu=fpv5-d16 -mthumb -mfloat-abi=hard -Os \
   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 -T src/cue7.ld \
   -o build/cue7.elf src/cue_m7.c
 "$OBJCOPY" -O binary -j .cave build/cue7.elf build/cue7.bin
 "$NM" build/cue7.elf > build/cue7.symbols
-"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0   -Wl,--defsym=pc_present=0x$(awk '$3=="pc_present"{print $1}' build/pcm4.symbols)   -Wl,--defsym=gate_ui_tick=0x$(awk '$3=="gate_ui_tick"{print $1}' build/cm4.symbols)   -T src/cue4.ld -o build/cue4.elf src/cue_m4.c
+"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os   -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables   -Wall -Wextra -Werror -Wl,--build-id=none,-e,0   -Wl,--defsym=pc_present=0x$(awk '$3=="pc_present"{print $1}' build/pcm4.symbols)   -Wl,--defsym=gate_ui_tick=0x$(awk '$3=="gate_ui_tick"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=theme_knob_palette=0x$(awk '$3=="theme_knob_palette"{print $1}' build/cm4.symbols)   -T src/cue4.ld -o build/cue4.elf src/cue_m4.c
 "$OBJCOPY" -O binary -j .cave build/cue4.elf build/cue4.bin
 "$NM" build/cue4.elf > build/cue4.symbols
-rm -f build/gr7_main.o build/gr7_fast.o build/delay7_main.o build/delay7_fast.o
+"$CC" -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard -Os \
+  -ffreestanding -nostdlib -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables \
+  -Wall -Wextra -Werror -Wl,--build-id=none,-e,0 \
+  -Wl,--defsym=pc_defs_hook=0x$(awk '$3=="pc_defs_hook"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=sat_default=0x$(awk '$3=="sat_default"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_default=0x$(awk '$3=="gate_default"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_track_local=0x$(awk '$3=="insert_track_local"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_track_bind=0x$(awk '$3=="insert_track_bind"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=synth_track_button_action=0x$(awk '$3=="synth_track_button_action"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=synth_track_b_action=0x$(awk '$3=="synth_track_b_action"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=insert_ui_leave=0x$(awk '$3=="insert_ui_leave"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=gate_turn=0x$(awk '$3=="gate_turn"{print $1}' build/cm4.symbols) \
+  -Wl,--defsym=pc_page_rows=0x$(awk '$3=="pc_page_rows"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=pc_knob=0x$(awk '$3=="pc_knob"{print $1}' build/pcm4.symbols) \
+  -Wl,--defsym=cue_ui_tick=0x$(awk '$3=="cue_ui_tick"{print $1}' build/cue4.symbols) \
+  -T src/dj4.ld -o build/dj4.elf src/dj_m4.c
+"$OBJCOPY" -O binary -j .cave build/dj4.elf build/dj4.bin
+"$NM" build/dj4.elf > build/dj4.symbols
+rm -f build/gr7_main.o build/gr7_fast.o build/delay7_main.o build/delay7_fast.o build/gate7_main.o build/insert7_fast.o
+CXX=${ARM_CXX:-${CC%gcc}g++}
+SYN_FLAGS="$M7_FLAGS -O3 -std=c++11 -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-use-cxa-atexit -ffunction-sections -fdata-sections -fno-tree-loop-distribute-patterns -Wno-unused-parameter -Isrc/freestanding -Ivendor/mutable -Isrc"
+"$CXX" $SYN_FLAGS -c -o build/synth_main.o src/synth_m7.cc
+for unit in plaits/dsp/engine/virtual_analog_engine plaits/resources stmlib/dsp/units; do # F2: FM and Shape removed
+  target=$(basename "$unit")
+  "$CXX" $SYN_FLAGS -c -o "build/synth_$target.o" "vendor/mutable/$unit.cc"
+done
+"$CXX" $SYN_FLAGS -Wl,--gc-sections,--build-id=none,-e,synth_source_process -T src/synth7.ld -o build/synth7.elf build/synth_*.o
+"$OBJCOPY" -O binary -j .cave build/synth7.elf build/synth7.bin
+"$NM" build/synth7.elf > build/synth7.symbols
+rm -f build/synth_*.o
 python3 tools/make_release.py "$@"

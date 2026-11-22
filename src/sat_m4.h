@@ -1,6 +1,8 @@
 #include "granular_params.h"
 #include "shoegaze_params.h"
 #include "tape_params.h"
+#include "insert_params.h"
+#include "synth_params.h"
 /* Desktop 1.5.2 native parameter registration; verified unused id 0x43.
  * Preserve the final stock definition/default before appending our own. */
 typedef void (*def_fn)(void *,unsigned,unsigned,const char *,int,int,const char *);
@@ -35,6 +37,77 @@ void sat_defs(void *table,unsigned id,unsigned type,const char *label,int min,in
     STOCK_DEF(table,T_LOCUT,1,"Lo C:",20,2000,"tapelocut");
     STOCK_DEF(table,T_WILD,4,"Wild:",0,1,"tapewild");
     STOCK_DEF(table,0x1ae,7,"Gate:",-96000,-12000,"ngthreshold");
+    /* Ordinal 0 is a fresh track's CLIP before INSRT is switched on (was Off);
+     * ordinal 2 was SIN, loaded as CLIP. 5..8 are filters, 9..14 the SPEC
+     * group: frequency shifter (F1) and resonator bank (F4). */
+    static const char *const insert_modes[]={"CLIP","CLIP","CLIP","FOLD","WRAP","LP","BP","HP","DJ","SHFT","SPRD","RING","HARM","CHRD","BELL"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,INS_MODE,"Insert:",insert_modes,15,"insmode");
+    STOCK_DEF(table,INS_DRIVE,8,"Drive:",0,1000,"insdrive");
+    STOCK_DEF(table,INS_TONE,8,"Tone:",0,1000,"instone");
+    STOCK_DEF(table,INS_MIX,8,"Mix:",0,1000,"insmix");
+    STOCK_DEF(table,INS_OUTPUT,7,"Output:",-18000,6000,"insoutput");
+    static const char *const synth_switch[]={"Off","On"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,INS_ON,"Insert On:",synth_switch,2,"inson");
+    static const char *const insert_chords[]={"MIN9","MAJ9","MIN7","MAJ7","SUS","5THS","4THS","DIM"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,INS_CHORD,"Chord:",insert_chords,INS_CHORD_COUNT,"inschord");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_ON,"Synth:",synth_switch,2,"synon");
+    /* Spectral F2: VA and Cluster only (FM and Shape removed). Labels past
+     * the count keep older projects' ordinals readable: 2 shows VA, 3 and 4
+     * (Swarm before S14) show Cluster, as the audio core plays them. */
+    static const char *const synth_engines[]={"VA","Cluster","VA","Cluster","Cluster"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_ENGINE,"Engine:",synth_engines,SYN_ENGINE_COUNT,"synengine");
+    STOCK_DEF(table,SYN_CHANNEL,1,"MIDI Ch:",1,16,"synchannel");
+    STOCK_DEF(table,SYN_HARMONICS,8,"Harm:",0,1000,"synharm");
+    STOCK_DEF(table,SYN_TIMBRE,8,"Timbre:",0,1000,"syntimbre");
+    STOCK_DEF(table,SYN_MORPH,8,"Morph:",0,1000,"synmorph");
+    STOCK_DEF(table,SYN_ATTACK,1,"Attack:",1,2000,"synattack");
+    STOCK_DEF(table,SYN_RELEASE,1,"Release:",5,5000,"synrelease");
+    STOCK_DEF(table,SYN_LEVEL,8,"Level:",0,1000,"synlevel");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_DRONE,"Drone:",synth_switch,2,"syndrone");
+    STOCK_DEF(table,SYN_CUTOFF,1,"Cutoff Hz:",20,20000,"syncutoff");
+    STOCK_DEF(table,SYN_LFO_RATE,1,"LFO mHz:",10,20000,"synlforate");
+    static const char *const synth_dest[]={"Off","Timbre","Harm","Morph","Cutoff"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO_DEST,"LFO Dest:",synth_dest,SYN_DEST_COUNT,"synlfodest");
+    STOCK_DEF(table,SYN_LFO_AMOUNT,8,"LFO Amp:",0,1000,"synlfoamt");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_ENV_DEST,"Env Dest:",synth_dest,SYN_DEST_COUNT,"synenvdest");
+    STOCK_DEF(table,SYN_ENV_AMOUNT,1,"Env %:",-100,100,"synenvamt");
+    STOCK_DEF(table,SYN_ENV_DECAY,1,"Env Dec:",5,5000,"synenvdecay");
+    STOCK_DEF(table,SYN_ENV_ATTACK,1,"Env Atk:",0,5000,"synenvattack");
+    static const char *const lfo_shapes[]={"Triangle","Sine","Square","Random"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO_SHAPE,"LFO Shape:",lfo_shapes,SYN_LFO_SHAPE_COUNT,"synlfoshape");
+    /* 13..24 are Free values that remember a division; see synth_params.h. */
+    static const char *const lfo_sync[]={"Free","1/64","1/32","1/16","1/8T","1/16D","1/8","1/4T","1/8D","1/4","1/2T","1/2","1 bar",
+        "Free","Free","Free","Free","Free","Free","Free","Free","Free","Free","Free","Free"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO_SYNC,"LFO Div:",lfo_sync,SYN_LFO_SYNC_MAX+1u,"synlfosync");
+    static const char *const lfo_modes[]={"Free","Sync"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO_MODE,"LFO Sync:",lfo_modes,2,"synlfomode");
+    static const char *const seeds[SYN_SEED_COUNT]={"1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16",
+        "17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_SEED,"Seed:",seeds,SYN_SEED_COUNT,"synseed");
+    /* S10: second LFO. */
+    STOCK_DEF(table,SYN_LFO2_RATE,1,"LFO2 mHz:",10,20000,"synlfo2rate");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO2_DEST,"LFO2 Dest:",synth_dest,SYN_DEST_COUNT,"synlfo2dest");
+    STOCK_DEF(table,SYN_LFO2_AMOUNT,8,"LFO2 Amp:",0,1000,"synlfo2amt");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO2_SHAPE,"LFO2 Shape:",lfo_shapes,SYN_LFO_SHAPE_COUNT,"synlfo2shape");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO2_SYNC,"LFO2 Div:",lfo_sync,SYN_LFO_SYNC_MAX+1u,"synlfo2sync");
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,SYN_LFO2_MODE,"LFO2 Sync:",lfo_modes,2,"synlfo2mode");
+    STOCK_DEF(table,SYN_RESO,8,"Reso:",0,1000,"synreso"); /* S18 */
     /* Keep the original style ordinals; only the final row is experimental. */
     static const char *const styles[]={"Tight Ambience","Bright Room","Large Room","Wide Slap","Notchy Ambiance","Reso Room","Marble Hall","Chamber","Dark Hall","Small Hall","Gated","Arena","Long Bright Bloom","Gravitas","Clouds","Gazer"};
     ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)

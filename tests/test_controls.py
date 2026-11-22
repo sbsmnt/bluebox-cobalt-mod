@@ -143,6 +143,27 @@ w32(u,TICK,23001);call(u,S['dly_tick'],P,0x24060040)
 check(text(u,W)=='0 st','continued turning restarts the three-second pitch timer')
 w32(u,TICK,25900);call(u,S['dly_tick'],P,0x24060040)
 check(text(u,W)=='PITCH','pitch label returns three seconds after the final movement')
+# A mapped CC: the audio core sends the value back (0x39 message for cell 20)
+# and 0x081252e0 stores it and flags a page refresh, which restarts the UI
+# state. The value text still shows for three seconds, with its unit.
+CCEV=0x24061000
+def from_m7(cell,pid,value,tick):
+ w32(u,TICK,tick);u.mem_write(CCEV,struct.pack('<B7xIHHiI',0x39,cell,pid,0,value,0))
+ call(u,S['dly_param_from_m7'],0x300173d0,CCEV)
+from_m7(20,0x4a,9,40000)
+check(call(u,0x8120234,0x300173d0+0xd08+20*16,0x4a)==9,'the native handler still stores the CC value')
+call(u,0x8127b84,W,0x4a,9,1)              # the page refresh rebinds the knob
+stub(u,0x812b460,lambda q:q.reg_write(UC_ARM_REG_R0,0)) # native notification body: a boundary
+u.mem_write(CCEV+0x100,struct.pack('<6I',0x63,0x8148664,20,0,0,0));call(u,S['dly_event'],P,CCEV+0x100) # ... and the 0x63 refresh restarts the FX UI state
+call(u,S['dly_tick'],P,0x24060040)
+check(text(u,W)=='9 st','a mapped CC shows the Pitch value with its st unit, after the page refresh')
+w32(u,TICK,42999);call(u,S['dly_tick'],P,0x24060040)
+check(text(u,W)=='9 st','it stays for 2999 ms after the CC')
+w32(u,TICK,43000);call(u,S['dly_tick'],P,0x24060040)
+check(text(u,W)=='PITCH','the Pitch label returns three seconds after the last CC')
+from_m7(21,0x4a,9,44000);call(u,S['dly_tick'],P,0x24060040)
+check(text(u,W)=='PITCH','a value for FX2 does not touch FX1 knobs')
+call(u,0x8127b84,W,0x4a,0,1) # back to 0 st for the clock-wrap checks
 # Unsigned time deltas handle the native millisecond counter wrapping.
 w32(u,TICK,0xfffffff0);call(u,S['dly_turn'],W,0)
 w32(u,TICK,(0xfffffff0+2999)&0xffffffff);call(u,S['dly_tick'],P,0x24060040)
@@ -189,13 +210,13 @@ for mode,title in [(0,b'Warp'),(1,b'Granulr'),(2,b'Tape'),(3,b'Ducked'),(4,b'Rev
 TOOLS=0xc0140000;call(u,0x813140c,TOOLS)
 def tools_text(offset):return bytes(u.mem_read(TOOLS+offset+0x65,32)).split(b'\0')[0]
 check(tools_text(0x34)==b'1.5.2','full Tools constructor retains the official version in the right field')
-check(tools_text(0xd4)==b'Cblt 1.2','full Tools constructor fills the existing middle header field')
+check(tools_text(0xd4)==b'Cblt 1.3d','full Tools constructor fills the existing middle header field')
 rects=[struct.unpack('<4i',u.mem_read(TOOLS+o+4,16)) for o in [0x174,0xd4,0x34]]
 check(rects==[(0,182,105,38),(106,182,106,38),(213,182,106,38)],'native header layout puts storage, mod and official version in three separate fields')
 check(all(bytes(u.mem_read(TOOLS+o+0x30,1))==b'\0' for o in [0x174,0xd4,0x34]),'all three Tools header fields are visible')
 # Exercise a native storage-text update; the new middle field must survive it.
 STR=0x24050100;u.mem_write(STR,b'32GB\0');call(u,0x813820c,TOOLS+0x174,STR)
-check(tools_text(0x174)==b'32GB' and tools_text(0xd4)==b'Cblt 1.2' and tools_text(0x34)==b'1.5.2','native storage update leaves mod and official-version fields separate')
+check(tools_text(0x174)==b'32GB' and tools_text(0xd4)==b'Cblt 1.3d' and tools_text(0x34)==b'1.5.2','native storage update leaves mod and official-version fields separate')
 check(bytes(u.mem_read(0x8146bd0,6))==b'1.5.2\0','shared official version string remains intact')
 
 # Density: actual native binding, encoder, fraction and indicator rendering.

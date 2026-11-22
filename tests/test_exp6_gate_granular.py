@@ -58,7 +58,8 @@ for label,thr,amp in (('Gate Off',-96000,.3),('Gate open, steady',-60000,.3),('G
   res.append(work(u,lambda:gblock(u,signal(amp,401),signal(amp,401,700))))
  records.append(dict(case=label,exp5_instructions=res[0][0],exp6_instructions=res[1][0],exp5_vdiv=res[0][1],exp6_vdiv=res[1][1]))
  print('INFO gate callback work',records[-1])
- if 'Off' in label:check(res[1][0]<=res[0][0],label+': no extra work')
+ DJ_NODE=48 # spectral-dj: the DJ EQ node (dj_process_node) runs in front of the gate; a neutral track is a bypass
+ if 'Off' in label:check(res[1][0]<=res[0][0]+32+DJ_NODE,label+': bypass insert dispatch adds at most 32 instructions (+ the DJ node in front)')
  else:check(res[1][0]<res[0][0]*.6,label+': at least 40% fewer instructions per block than exp.5')
 
 # 3. Granular: wet output is exp.5's times G_MAKEUP (one float multiply); grain,

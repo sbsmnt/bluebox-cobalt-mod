@@ -1,0 +1,6 @@
+#ifndef COBALT_FREESTANDING_PLACEMENT_NEW
+#define COBALT_FREESTANDING_PLACEMENT_NEW
+#include <stddef.h>
+inline void* operator new(size_t,void* location) noexcept {return location;}
+inline void operator delete(void*,void*) noexcept {}
+#endif

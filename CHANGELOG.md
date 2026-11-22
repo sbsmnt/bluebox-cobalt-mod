@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.3.0-dev.1 (dev, 2026-11-21)
+
+First development build of v1.3 on `dev`. TOOLS shows `Cblt 1.3d`. Includes
+the DJ EQ from
+[pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2) by
+[Milan Wulf](https://github.com/milanwulf). User guide: README "New in v1.3"
+and the patcher page's "New in v1.3" section.
+
+- **Synth tracks:** mono synth per track (VA from Mutable Instruments Plaits,
+  Cobalt Cluster), filter with Reso, volume and modulation envelopes, two
+  LFOs, Drone, Input None support, MIDI-learnable.
+- **Track inserts:** DRV (CLIP, FOLD, WRAP), FLTR (LP, BP, HP, DJ with RES
+  and ENV) and SPEC (SHFT, SPRD, RING frequency shifter; HARM, CHRD, BELL
+  resonator bank with chords). Inserts are saved per track and in scenes.
+  SPEC stops processing once a tail has decayed below −120 dB and the input
+  is silent.
+- **DJ EQ and filter** (PR 2): 4/3-band ISO or EQ curve, kills, LP/HP
+  filter, DJ view, presets, in scenes. 4 bands cost about 3 % CPU per stereo
+  track on hardware, a neutral track nothing.
+- **Synth Seed knob** reads SEED at rest and its number while turning.
+- **Out 2 clock:** Clk Out L / R (PROJ → B), 1–24 PPQ pulses on Out 2.
+- **MIDI Learn** for every Cobalt control: Cobalt's FX1 delay modes, Gazer,
+  master saturation and the Gate threshold now move with their CCs (the
+  value used to stay at 0). A mapped CC on an FX control shows its value
+  with units for three seconds, and the Gate status on TRACK no longer
+  blinks `--` while the threshold moves.
+- **User Settings** (Dim No Input, Track Knob 8, Hide DEFAULT) and the
+  `DEFAULT` new-project template.
+- **Bank Select fix:** a project load that finished between two UI passes
+  is no longer missed, so a second Bank Select straight after a load works
+  (before, it could wait for a 15 s timeout).
+
 ## v1.2.0
 
 Phones AUTO cue, for bluebox desktop firmware 1.5.2. Contributed by

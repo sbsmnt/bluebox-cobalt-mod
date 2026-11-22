@@ -414,6 +414,23 @@ static void dly_send_into(uint8_t *rev, void *ctx)
 }
 
 #include "shoegaze_m7.h"
+#include "insert_freqshift.h"
+/* F3: the twelve tracks' frequency shifter states, from the same boot-time
+ * arena (bump allocator; asserts past its limit, so check first). The link
+ * is rewritten every boot; without room the shifter types play dry. */
+static void fsh_allocate(void) {
+    FSH_LINK->magic=0;FSH_LINK->bank=0;FSH_LINK->tracks=0;FSH_LINK->spare=0;
+    uint32_t bytes=(FSH_BANK_BYTES+31u)&~31u;
+    uint32_t cursor=*(volatile uint32_t *)0x24000004u;
+    uint32_t limit=*(volatile uint32_t *)0x24000000u;
+    if(cursor>=0xc0000000u && cursor<=limit && bytes<=limit-cursor && cursor<=0xc3400000u-bytes) {
+        struct fsh_state *bank=((void *(*)(unsigned))0x080412a5u)(bytes);
+        if(bank) {
+            for(unsigned ch=0;ch<FSH_TRACKS;ch++)fsh_init(bank+ch,500,0,0);
+            FSH_LINK->bank=bank;FSH_LINK->tracks=FSH_TRACKS;FSH_LINK->magic=FSH_LINK_MAGIC;
+        }
+    }
+}
 /* Stock styles are retained; the experimental style has independent state. */
 unsigned delay_reverb_process(uint8_t *obj,void *ctx) {
     dly_send_into(obj,ctx);
@@ -441,5 +458,6 @@ unsigned dly_construct(uint8_t *obj) {
     x_reset(XS,obj);
     rc_reset(RC,obj);
     sg_allocate();
+    fsh_allocate();
     return result;
 }

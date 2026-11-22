@@ -44,7 +44,9 @@ CELL=sum(1 for r in range(-1,8) for c in range(-1,10) if bit(r,c) or any(bit(r+a
 def dimmed(x,y):return BG if (x+y)%2==0 else PAINT
 
 # Patch wiring.
-for at,new in ((0x8137496,C4['cue_present']),(0x813408e,C4['cue_ui_tick'])):
+# The redraw check runs the DJ view tick first, which chains to the cue tick.
+check(M['symbols']['dj4']['cue_ui_tick']==C4['cue_ui_tick'],'DJ view tick chains to the cue icon tick')
+for at,new in ((0x8137496,C4['cue_present']),(0x813408e,M['symbols']['dj4']['dj_ui_tick'])):
  h1,h2=struct.unpack('<HH',u.mem_read(at,4));s=(h1>>10)&1
  off=(s<<24)|((1-(((h2>>13)&1)^s))<<23)|((1-(((h2>>11)&1)^s))<<22)|((h1&1023)<<12)|((h2&2047)<<1)
  check(at+4+(off-(1<<25) if s else off)==new,'call at '+hex(at)+' now reaches the cue hook')
@@ -78,6 +80,78 @@ for name,page in (('MIXER',P),('TRACK',T)):
  body=all(px(fb,x+w-11+c,y+2+r)==(FILL if bit(r,c) else BG if any(bit(r+a,c+b) for a in (-1,0,1) for b in (-1,0,1)) else dimmed(x+w-11+c,y+2+r)) for r in range(-1,8) for c in range(-1,10))
  check(body,name+': a cued track without an input is greyed and still shows its icon')
 
+# S21: Tools "Dim No Input" Off leaves tracks without an input undimmed;
+# cue icons still draw.
+SETS=APP+0x737c;PROJ=APP+0xe78;CLKSET=APP+0xe68   # OUT2 Mode in cell 12's set; PROJ B (Clk Out) in the kind-8 project set (S23: S21/S22 read +0xe78)
+def get(s,i):return call(u,0x8120234,s,i)
+# The fixture's sets: settings get Dim No Input, the project the two Clk Out rows.
+w32(u,SETS+4,0x24059000);u.mem_write(SETS+10,struct.pack('<HH',1,8));u.mem_write(0x24059000,struct.pack('<H2xi',0x290,0))
+u.mem_write(TMP+0x700,b'\x08');call(u,0x81202b8,CLKSET,TMP+0x700)   # the real kind-8 project defaults
+check(get(CLKSET,0x110)==0 and get(CLKSET,0x111)==0 and get(CLKSET,0xce)==0,'Clk Out L/R live in the kind-8 project set (with Metronome), default Off')
+def put(s,i,v):call(u,0x8120264,s,i,v&0xffffffff)
+check(get(SETS,0x290)==0,'Dim No Input defaults On (0)')
+show(T);tl=tiles(T);masks(0,0xfff&~(1<<2))
+on=changed(present());put(SETS,0x290,1);off=changed(present())
+masks(1<<2,0xfff&~(1<<2));icon=present()
+check(on>0 and off==0 and icon_ok(icon,tl[2][0]+tl[2][2]-11,tl[2][1]+2) and changed(icon)==CELL,'Dim No Input Off: no stipple on tracks without an input, icons stay')
+put(SETS,0x290,0)
+
+# S21: a Clk Out row on: MIXER sends tiles showing that Out 2 send look muted
+# grey (S22: knob colour, active fill and text -> idle fill); nothing else.
+TEXT=u32(u,0x814d230+3*4)&0xffffff;IDLE=u32(u,0x814d230+1*4)&0xffffff
+KNOBC=M['symbols']['4']['theme_knob_palette']+34*4
+check(u32(u,KNOBC)&0xffffff==0x09d7f5,'knob theme colour read from the cm4 CLUT entry 34')
+u.mem_write(KNOBC,struct.pack('<I',0xff31a2c4));KNOB=0x31a2c4   # a theme whose knobs differ from the active fill (S21 missed these)
+def painted(page):
+ u.mem_write(FB,struct.pack('<I',0xff000000|PAINT)*(320*240))
+ for ch,(x,y,w,h) in tiles(page).items():
+  for r in range(h):u.mem_write(FB+((y+r)*320+x)*4,b''.join(struct.pack('<I',0xff000000|(FILL,TEXT,KNOB,PAINT)[c%4]) for c in range(w)))
+ return bytes(u.mem_read(FB,320*240*4))
+def mixer_frame(mono,send,l,r):
+ put(PROJ,0x18c,0 if mono else 1);put(CLKSET,0x110,l);put(CLKSET,0x111,r)
+ call(u,S['gate_mix_setup'],P,1);call(u,S['gate_mix_select'],P,send)
+ show(P);masks(0);before=painted(P);call(u,C4['cue_present'],0,1,0,0)
+ return before,bytes(u.mem_read(FB,320*240*4))
+def muted_tracks(before,after,page):
+ out=[]
+ for ch,(x,y,w,h) in tiles(page).items():
+  if ch>=12:continue
+  cells=[(px(before,x+c,y+r),px(after,x+c,y+r)) for r in range(h) for c in range(w)]
+  if all(b==a for b,a in cells):continue
+  if all(a==(IDLE if b in (FILL,TEXT,KNOB) else b) for b,a in cells):out.append(ch)
+  else:out.append(-1)
+ return out
+for ch in range(13):u.mem_write(P+STRIP0+ch*STRIDE+0x30,bytes([0 if ch<8 or ch==12 else 1]))
+check(muted_tracks(*mixer_frame(1,4,0,0),P)==[],'both clocks Off: OUT2 tiles unchanged')
+check(muted_tracks(*mixer_frame(1,4,3,0),P)==list(range(8)),'Mono, Clk Out L on: every OUT2 tile looks muted')
+check(muted_tracks(*mixer_frame(1,5,3,0),P)==[],'Mono, Clk Out L on: OUT3 tiles (Out 2 right) unchanged')
+check(muted_tracks(*mixer_frame(1,5,0,1),P)==list(range(8)) and muted_tracks(*mixer_frame(1,4,0,1),P)==[],'Mono, Clk Out R on: OUT3 tiles muted, OUT2 tiles not')
+check(muted_tracks(*mixer_frame(0,4,0,1),P)==list(range(8)),'Stereo, either clock on: the OUT2 tiles look muted')
+check(muted_tracks(*mixer_frame(1,3,3,3),P)==[] and muted_tracks(*mixer_frame(1,0,3,3),P)==[],'other sends (CUE, Pan) unchanged with clocks on')
+before,after=mixer_frame(1,4,3,0);call(u,C4['cue_present'],0,1,0,0)
+check(bytes(u.mem_read(FB,320*240*4))==after,'muted look is stable when the UI does not repaint')
+check(get(PROJ,0x110)==0 and get(PROJ,0x111)==0,'the clock rows are not in the OUT2 Mode set (S21/S22 read them there)')
+# S23: TRACK page: the OUT2 knob (seventh) greys like the MIXER tiles; the others stay.
+def knob_rect(off):
+ x,b,w,h=struct.unpack('<4i',u.mem_read(T+off+4,16));return x,240-b-h,w,h
+def track_frame(l,r):
+ put(CLKSET,0x110,l);put(CLKSET,0x111,r);show(T);masks(0)
+ u.mem_write(FB,struct.pack('<I',0xff000000|PAINT)*(320*240))
+ for off in (0xda78,0xd2d8):
+  x,y,w,h=knob_rect(off)
+  for rr in range(h):u.mem_write(FB+((y+rr)*320+x)*4,b''.join(struct.pack('<I',0xff000000|(FILL,TEXT,KNOB,PAINT)[c%4]) for c in range(w)))
+ before=bytes(u.mem_read(FB,320*240*4));call(u,C4['cue_present'],0,1,0,0);after=bytes(u.mem_read(FB,320*240*4))
+ def grey(off):
+  x,y,w,h=knob_rect(off);cells=[(px(before,x+c,y+rr),px(after,x+c,y+rr)) for rr in range(h) for c in range(w)]
+  return all(a==(IDLE if b in (FILL,TEXT,KNOB) else b) for b,a in cells) and any(a!=b for b,a in cells)
+ return grey(0xda78),grey(0xd2d8),sum(1 for i in range(0,len(before),4) if before[i:i+3]!=after[i:i+3])
+u.mem_write(TMP,struct.pack('<6I',0x63,0x8148664,3,0,0,0));call(u,0x8133194,T,TMP)   # TRACK shows track 4
+check(struct.unpack('<H',u.mem_read(T+0xda78+0x94,2))[0]==0x15e,'TRACK seventh knob is OUT2')
+g_out2,g_other,n=track_frame(3,0);x,y,w,h=knob_rect(0xda78)
+check(g_out2 and not g_other and n==sum(1 for rr in range(h) for c in range(w) if c%4<3),'TRACK, Clk Out L on: only the OUT2 knob greys')
+check(track_frame(0,0)[2]==0,'TRACK, clocks Off: nothing changes')
+put(CLKSET,0x110,0);put(CLKSET,0x111,0);put(PROJ,0x18c,0)
+
 # EQ page with its real layout: normal view shows the strip, the full-screen
 # graph (second EQ press) hides every track strip, so no icon or greying.
 EQP=0xc0400000;call(u,0x8129d84,EQP)
@@ -105,4 +179,8 @@ masks(1<<2);check(tick()==b'\1\1','cue on: both page buffers redraw')
 check(tick()==b'\0\0','no repeated redraw while the masks are unchanged')
 masks(1<<2,0xffe);check(tick()==b'\1\1','input change: redraw')
 masks(0,0xffe);check(tick()==b'\1\1','cue off: redraw removes the icon')
+tick()
+put(CLKSET,0x110,2);check(tick()==b'\1\1','Clk Out L on: redraw');check(tick()==b'\0\0','then no repeat')
+put(CLKSET,0x110,0);check(tick()==b'\1\1','Clk Out L off: redraw')
+put(SETS,0x290,1);check(tick()==b'\1\1','Dim No Input changed: redraw');put(SETS,0x290,0);tick()
 print('Cue icon checks:',H.checks)

@@ -16,7 +16,7 @@ w32(u,APP+0xe78+4,0x24058000)
 u.mem_write(APP+0xe78+10,struct.pack('<HH',1,68))
 u.mem_write(0x24058000,struct.pack('<H2xi',0x18c,0))
 stub(u,0x8121f4c,lambda u:u.reg_write(UC_ARM_REG_R0,0))
-call(u,S['gate_mix_construct'],P);call(u,0x81323b8,T);call(u,0x8132ed4,T)
+call(u,S['gate_mix_construct'],P);call(u,S['insert_track_construct'],T);call(u,0x8132ed4,T)
 parents=[];commands=[];notifications=[]
 w32(u,ROOTOBJ,RVT);w32(u,RVT+0x30,0x80dfe01)
 for panel in (P,T):w32(u,panel+0x2c,ROOTOBJ)

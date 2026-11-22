@@ -1,0 +1,2 @@
+#include <math.h>
+namespace std {using ::fabsf;using ::sqrtf;}

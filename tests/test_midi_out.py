@@ -68,7 +68,7 @@ def m2_machine():
  return u
 u=m2_machine()
 check(u32(u,0x30000098)==0x08145d38 and u32(u,0x300000b4)==0,'USBH MIDI class in RAM at 0x30000098 ("MIDI"), no device: pData 0')
-TOAST=u32(u,0x38800fd4)+0x20+640*4+16*640*4+64*8+64*2+8*4
+TOAST=u32(u,0x38800fd4)+0x20+768*4+16*768*4+64*8+64*2+8*4
 SETTINGS=SESSION+0x737c;call(u,0x8120a52,SETTINGS)
 check(call(u,0x8120234,SETTINGS,0x293)==1,'Map CC Sync defaults to USB')
 def tset(cell,id,v):call(u,0x8120264,taddr(cell),id,v&0xffffffff)
@@ -114,7 +114,9 @@ check(run(40)==[],'load complete with no device: nothing sent')
 attach()
 got=run(40)
 check(got==GEN,'attach (generic device) + 500 ms: the 4 mapped CCs with current values on cable 0: '+' '.join('%02x/%d=%d'%(p[1],p[2],p[3]) for p in got))
-check(u32(u,TOAST)==0,'no band when the dump completes')
+# S9b: the load diagnostic band (T_DIAG, 10) may show; no MIDI-out band.
+def nomo():return u32(u,TOAST)>>8!=8
+check(nomo(),'no band when the dump completes')
 tset(0,0x4,lvl_lo);u.mem_write(LOADBUF,b'Song\0');main()
 check(run(10,20)==[],'nothing sent while a load runs')
 u.mem_write(LOADBUF,b'\0')
@@ -149,10 +151,10 @@ detach();main();attach(0x1235,0x0128);got=run(40)
 check(got==GEN,'Launchpad attach: the same 4 CCs on cable 0 as any device, no setup SysEx, nothing on cable 2')
 # device without OUT endpoint
 detach();main();attach(ep=0);run(40)
-check(sent==[] and u32(u,TOAST)==0,'device without OUT endpoint: nothing sent, no band')
+check(sent==[] and nomo(),'device without OUT endpoint: nothing sent, no band')
 # empty map
 setmap([]);detach();main();attach();got=run(40)
-check(got==[] and u32(u,TOAST)==0,'empty map: nothing sent, no band')
+check(got==[] and nomo(),'empty map: nothing sent, no band')
 
 # 3. m3: DIN Out thru (mo_next replaces the stock input merger 0x08103c62 at
 #    both TIM4 poll calls) and DIN Sync (the feedback dump on the two serial
@@ -242,7 +244,7 @@ check(got()==[(0xfc,0),(0xf8,0)],'MIDI in stop + clock take over from the comput
 w32(u,TOAST,0);setting(0x294,1);w32(u,NOW,1002000)
 check(u32(u,TOAST)==(9<<8|1),'Clock Src changed to USB: band shows the USB order (T_CLOCK, 1)')
 w32(u,TOAST,0);main()
-check(u32(u,TOAST)==0,'no band again while Clock Src stays the same')
+check(nomo(),'no band again while Clock Src stays the same')
 din_in([0xf8]);host_in(F8)
 check(got()==[(0xf8,0),(0xf8,1)],'Clock Src USB: USB host clock takes over from MIDI in at once')
 din_in([0xf8,0xfa])
@@ -263,7 +265,7 @@ u.mem_write(LOADBUF,b'Song\0');main();u.mem_write(LOADBUF,b'\0')
 check(din_run()==(b'',b''),'Map CC Sync USB: load complete sends nothing on MIDI out')
 setting(0x293,3);w32(u,TOAST,0)
 u.mem_write(LOADBUF,b'Song\0');main();u.mem_write(LOADBUF,b'\0');a,b=din_run()
-check(a==b==cc_bytes(GEN) and sent==[] and u32(u,TOAST)==0,'Map CC Sync MIDI Out, no USB device: load complete + 500 ms sends the 4 CCs on both serial outputs, no band')
+check(a==b==cc_bytes(GEN) and sent==[] and nomo(),'Map CC Sync MIDI Out, no USB device: load complete + 500 ms sends the 4 CCs on both serial outputs, no band')
 attach();a,b=din_run()
 check(a==b==b'' and sent==[],'Map CC Sync MIDI Out: USB attach sends nothing (attach dump is USB only)')
 u.mem_write(LOADBUF,b'Song\0');main();u.mem_write(LOADBUF,b'\0');a,b=din_run()

@@ -73,7 +73,7 @@ def main():
         print('Output SHA256:',hashlib.sha256(out).hexdigest())
         if a.check:
             print('Check only: no firmware file was written.');return 0
-        dest=a.output or pathlib.Path('restored' if a.restore else 'modded')/'BLUEBOX.BIN'
+        dest=a.output or pathlib.Path('restored' if a.restore else 'synth-S5')/'BLUEBOX.BIN'
         if dest.resolve()==a.firmware.resolve():raise ValueError('Output cannot be the input')
         if dest.exists():raise ValueError('Output already exists; choose a new path: '+str(dest))
         dest.parent.mkdir(parents=True,exist_ok=True)

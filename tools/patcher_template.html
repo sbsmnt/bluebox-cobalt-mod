@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bluebox Cobalt mod</title><meta name="description" content="Patch the Bluebox desktop 1.5.2 firmware with the Cobalt mod and a custom colour theme, locally in your browser."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%274%27 fill=%27%230047ab%27/%3E%3C/svg%3E">
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bluebox Cobalt mod (dev)</title><meta name="description" content="Patch the Bluebox desktop 1.5.2 firmware with the Cobalt mod and a custom colour theme, locally in your browser."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%274%27 fill=%27%230047ab%27/%3E%3C/svg%3E">
 <style>
 :root{--bg:#0e141b;--panel:#16202b;--panel2:#1c2835;--line:#2b3a4a;--ink:#e9eef4;--mute:#9fb0c3;--brand:#9455fa;--ok:#4fd18b;--warn:#f0b24a;--err:#ff8a8a;--body1:#4b93bb;--body2:#2f6d93}
 *{box-sizing:border-box}html{background:var(--bg)}body{background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;max-width:1500px;margin:0 auto;padding:28px 20px 60px}
@@ -36,6 +36,15 @@ details.contrast{margin-top:14px;border:1px solid var(--line);border-radius:10px
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin-top:8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .help{font-size:13px;color:var(--mute);margin-top:14px}.help p{margin:6px 0}
 #themeMessage{min-height:1.4em;font-size:14px}
+#features{scroll-margin-top:16px}#featTabs{margin-bottom:14px}#featTabs button[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:#fff}#featBody{max-width:900px}
+#featBody .seg{margin:4px 8px 10px 0;flex-wrap:wrap}#featBody .gcalc label{gap:6px}#featBody .gcalc .seg{margin:0}
+.gflow .fnote,.gflow .fnote2{fill:var(--mute);font-size:12px;font-weight:400}.gflow .fnote2{fill:var(--warn)}
+.gflow .fbox{fill:var(--panel2);stroke:var(--line)}.gflow .fref{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 4}.gflow .fcurve{fill:none;stroke:var(--brand);stroke-width:3}.gflow .fcurve2{fill:none;stroke:var(--warn);stroke-width:3;stroke-dasharray:7 5}
+.gflow .fref2{stroke:var(--line);stroke-width:5}.gflow .fbar{stroke:var(--brand);stroke-width:4}.gflow .fbar2{stroke:var(--warn);stroke-width:4}
+.gflow .fband0{fill:var(--panel2);stroke:var(--brand)}.gflow .fband1{fill:#2a2140;stroke:var(--brand)}.gflow .fbandtext{fill:var(--ink);font-size:13px}.gflow .fkill{fill:var(--err);opacity:.85}.gflow .fkilltext{fill:var(--err);font-size:12px}.gflow .fxover{stroke:var(--warn);stroke-width:2;stroke-dasharray:3 3}
+.gflow .fgrid{stroke:var(--line);stroke-width:1}.gflow .fbase{stroke:var(--line);stroke-width:2}.gflow .fpulse{fill:var(--brand)}.gflow .fhead{stroke:var(--ink);stroke-width:2;animation:fhead 2s linear infinite}@keyframes fhead{to{transform:translateX(560px)}}@media(prefers-reduced-motion:reduce){.gflow .fhead{animation:none}}
+.gflow .ftile{fill:var(--panel2);stroke:var(--brand)}.gflow .fgrey{fill:#202630;stroke:#333}.gflow .fgreytext{fill:#556;font-size:13px}
+#featBody p{margin:0 0 10px}#featBody ul{margin:0 0 12px;padding-left:22px}#featBody li{margin:3px 0}
 /* Scenes & MIDI guide */
 .guide{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,420px);gap:24px;align-items:start}.guide .screen{position:sticky;top:16px}
 #guideTabs{margin-bottom:14px}#guideTabs button[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -57,9 +66,9 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:var(--panel2);border:1
 @media(max-width:980px){.studio{grid-template-columns:1fr}.guide{grid-template-columns:1fr}.guide .screen{position:static;max-width:420px}.controls{position:static;max-height:none;overflow:visible}}
 @media(max-width:560px){body{padding:16px 12px 40px}section{padding:16px}.screen{border-width:4px}.swatch-row{grid-template-columns:34px 1fr 78px;gap:8px;padding:6px 4px}}
 </style>
-<header><h1>Bluebox Cobalt mod</h1><p class="lede">Unofficial effects &amp; theme mod for bluebox desktop firmware 1.5.2 · v__VERSION__</p>
-<div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span><a class="chip jump" href="#guide">New in v1.1: scenes and MIDI ›</a></div>
-<p class="notice">Use the original official desktop 1.5.2 firmware. Keep your working firmware and a project backup.</p></header>
+<header><h1>Bluebox Cobalt mod <span class="chip">dev</span></h1><p class="lede">Unofficial effects &amp; theme mod for bluebox desktop firmware 1.5.2 · v__VERSION__</p>
+<div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span><a class="chip jump" href="#features">New in v1.3 ›</a><a class="chip jump" href="#guide">Scenes and MIDI guide ›</a></div>
+<p class="notice">Development build from the <code>dev</code> branch: the next Cobalt version while it is tested on hardware. It adds synth tracks, track inserts (DRV, FLTR, SPEC), the DJ EQ and filter, an analog clock on Out 2 and User Settings to Cobalt v1.2. TOOLS shows <b>Cblt 1.3d</b>. Keep your working firmware and back up your projects. For the current release use v1.2.0.</p></header>
 <section><h2><span class="step">1</span>Firmware</h2><div class="drop" id="dropzone" role="button" tabindex="0" aria-label="Choose the original BLUEBOX.BIN"><strong>Drop BLUEBOX.BIN here</strong><span class="muted">or click to browse</span><span id="fileName"></span></div><input id="file" type="file" accept=".bin,.BIN" hidden aria-label="Original firmware"><label style="display:block;margin-top:12px"><input id="restore" type="checkbox"> Restore the original from a Cobalt __VERSION__ firmware file</label><small>Restore detects this version’s theme colours automatically.</small></section>
 <section><h2><span class="step">2</span>Theme</h2>
 <div class="studio"><div class="controls">
@@ -78,6 +87,7 @@ __THEME_FIELDS_HTML__
 <div class="under"><span id="screenName">MIXER · Vol</span><span class="legend"><span><i style="background:#00c850"></i>CPU meter: fixed mod colours</span><span><i style="background:#0b0b0b;border:1px solid #555"></i>Header strip, wells and dividers: fixed</span></span></div>
 <details class="contrast"><summary>Contrast check</summary><small id="contrast"></small></details><p class="muted" style="font-size:12px">An approximate 320 × 240 recreation of the device screens. Fonts, spacing and LCD response differ slightly on the device.</p></div></div></section>
 <section><h2><span class="step">3</span>Generate</h2><p class="muted">Generate a new BLUEBOX.BIN and install it with your usual SD-card procedure. Choosing another theme needs no code compilation.</p><button id="go" disabled>Verify and prepare download</button><pre id="status" aria-live="polite"></pre><a id="download" hidden>Download BLUEBOX.BIN</a><p><small>Unofficial firmware · Cobalt v__VERSION__. See the README for installation steps.</small></p></section>
+<section id="features"><h2>New in v1.3</h2><p class="muted">What the features in this development build do on the device. Every setting below is saved in the project.</p><div class="tabs" id="featTabs" role="group" aria-label="Feature"></div><div id="featBody"></div></section>
 <section id="guide"><h2>Using scenes and MIDI</h2><p class="muted">What the new v1.1 features do on the device, step by step. The screens use your theme.</p><div class="tabs" id="guideTabs" role="group" aria-label="Guide topic"></div><div class="guide"><div id="guideBody"></div><div class="screen"><svg id="guideScreen" viewBox="0 0 320 240" role="img" aria-label="Bluebox screen for this topic"></svg></div></div></section>
 <script>
 'use strict';const manifest=__MANIFEST_JSON__;
@@ -199,7 +209,7 @@ const DRAW={
   row(148,30,[1,['A',49],...[...'SDFGHJK'].map(c=>[c,31.8]),['L',46.4]]);
   row(179,29,[1,['^',33],...[...'ZXCVBNM'].map(c=>[c,31.8]),['<-',62.4]]);
   P.rect(5,210,22,29,WELL);button(P,28,210,76,29,'123','button_idle',14);P.rect(105,210,20,29,WELL);button(P,126,210,75,29,'space','button_idle',13);P.rect(202,210,116,29,WELL);},
- tools(P){base(P);[['57GB',0,52],['Cblt 1.2',53,52],['1.5.2',107,52]].forEach(([l,x,w])=>button(P,x*2,22,w*2-2,32,l,'button_idle',13));
+ tools(P){base(P);[['57GB',0,52],['Cblt 1.3d',53,52],['1.5.2',107,52]].forEach(([l,x,w])=>button(P,x*2,22,w*2-2,32,l,'button_idle',13));
   listRows(P,['Brightness: 2.0%','Bright Fine: 0.0%','MIDIStopRcv: OFF'],0,{y:58,h:24,selText:30});
   ['Tuner','Scope','DiskMode'].forEach((l,i)=>button(P,i*107,206,106,33,l,'button_idle',13));},
  tuner(P){tunerPage(P,'in');},tunernear(P){tunerPage(P,'near');},tunerfar(P){tunerPage(P,'far');},
@@ -235,7 +245,7 @@ const steps=a=>'<ol class="gsteps">'+a.map(s=>'<li>'+s+'</li>').join('')+'</ol>'
 const kbd=s=>'<kbd>'+s+'</kbd>';
 const SCENE_ROWS=[
  ['Load Scene','Recalls that scene. Only the values that differ change and nothing is loaded, so playback and recording carry on. The band shows <code>SCENE 3</code>, or <code>SCENE 3 IS EMPTY</code>.'],
- ['Save Scene','Saves the current mixer, master and aux buses, FX1/FX2 (with the effect type) and BPM to that scene, then saves the project. The band shows <code>SCENE 4 SAVED</code>.'],
+ ['Save Scene','Saves the current mixer, inserts and DJ EQ, master and aux buses, FX1/FX2 (with the effect type) and BPM to that scene, then saves the project. The band shows <code>SCENE 4 SAVED</code>.'],
  ['Bank #','The number MIDI Bank Select uses to load this project: None or 1–128. A number another project already has is refused (<code>BANK 2 IN USE</code>). PROJ '+kbd('Save')+' also applies the number chosen here.']];
 const SETTING_ROWS=[
  ['Bank CC','Which CC loads a project: <code>MSB CC0</code> (default) or <code>LSB CC32</code>. Value 0 is Bank # 1.'],
@@ -261,11 +271,126 @@ function clockFlow(){const o=CLK_ORDER[G.clk],sub={'MIDI In':'DIN','USB-B':'comp
  <g class="gnote"><text x="430" y="190">if 1 stops: 2 after 300 ms</text></g></svg>`;}
 function recallText(){const b=G.bank,p=G.pc,o=G.from1?1:0;
  return `<p class="gresult">Bank Select <b>${b+o}</b> loads the project with <b>Bank # ${b+1}</b>; Program Change <b>${p+o}</b> then recalls <b>scene ${p+1}</b>.</p>`;}
+// ---- New in v1.3: interactive feature guide (diagrams only, no device screens).
+const FT=(rows,head)=>'<table class="gtable">'+(head?'<tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr>':'')+rows.map(r=>'<tr>'+r.map((c,i)=>(i?'<td>':'<td><b>')+c+(i?'</td>':'</b></td>')).join('')+'</tr>').join('')+'</table>';
+const FS={topic:'inserts',grp:0,type:0,chord:0,eng:0,src:0,dest:[1,0,4],page:0,bands:0,p4:0,p3:0,kill:[0,0,0,0],l:3,r:1,mono:0,play:1,tpl:0};
+const fseg=(key,opts,cur)=>`<div class="seg" role="group">${opts.map((o,i)=>`<button type="button" data-f-set="${key}:${i}" aria-pressed="${i===cur}">${o}</button>`).join('')}</div>`;
+const fsvg=(w,h,label,body)=>`<svg class="gflow" viewBox="0 0 ${w} ${h}" role="img" aria-label="${label}">${body}</svg>`;
+const ftext=(x,y,s,cls='',anchor='middle')=>`<text class="${cls}" x="${x}" y="${y}" text-anchor="${anchor}">${s}</text>`;
+const fpath=(d,cls)=>`<path class="${cls}" d="${d}"/>`;
+const fpoly=(f,x0,y0,w,h,n=160,lo=-1,hi=1)=>{let d='';for(let i=0;i<=n;i++){const x=lo+(hi-lo)*i/n,y=Math.max(-1.2,Math.min(1.2,f(x)));d+=(i?'L':'M')+(x0+w*i/n).toFixed(1)+' '+(y0+h/2-y*h/2.4).toFixed(1);}return d;};
+// Track signal chain (the highlighted stage changes per tab).
+function fchain(lit){const st=[['Input','or synth'],['Track EQ',''],['Gate',''],['Insert','3 groups'],['DJ EQ','and filter'],['Mixer','sends · cue']],w=96,g=12;
+ return fsvg(6*w+5*g+20,92,'Track signal chain',st.map(([l,s],i)=>(i?wire(`M${10+i*(w+g)-g} 46 L ${10+i*(w+g)} 46`,i===lit||i-1===lit):'')+node(10+i*(w+g),18,w,56,l,s,i===lit?'lit':'')).join(''));}
+// ---- Inserts
+const INS=[['DRV',[['CLIP','Hard clip; dirtier over the top 30 % of Drive'],['FOLD','Wavefolder: loud peaks fold back down'],['WRAP','Wrap-around, anti-aliased: peaks jump to the other side']],'Drive · Tone · Mix · Output'],
+ ['FLTR',[['LP','Resonant low-pass'],['BP','Resonant band-pass'],['HP','Resonant high-pass'],['DJ','One knob: centre off, left low-pass, right high-pass']],'Cutoff (Hz) · RES · ENV (envelope follower) · Output'],
+ ['SPEC',[['SHFT','Moves every partial by the same number of Hz'],['SPRD','Left shifts up, right shifts down'],['RING','Ring modulation: both sidebands'],['HARM','Resonators on the harmonic series'],['CHRD','Resonators on a chord'],['BELL','Resonators on bell partials']],'Shift · FDBK · Mix · Output (shifter) — Pitch · Decay · Mix · Output (resonator)']];
+const CHORDS=['MIN9','MAJ9','MIN7','MAJ7','SUS','5THS','4THS','DIM'];
+const RATIOS={HARM:[1,2,3,4,5,6,7,8],BELL:[.5,1,1.189,1.498,2,2.514,2.662,3.011],
+ MIN9:[0,3,7,10,12,14,19,24],MAJ9:[0,4,7,11,12,14,19,24],MIN7:[0,3,7,10,12,15,19,22],MAJ7:[0,4,7,11,12,16,19,23],SUS:[0,2,5,7,12,14,17,19],'5THS':[0,7,12,19,24,31,36,43],'4THS':[0,5,10,15,20,25,30,35],DIM:[0,3,6,9,12,15,18,21]};
+function insPlot(type){const W=520,H=170,x0=40,y0=14,w=460,h=120;let b=`<rect class="fbox" x="${x0}" y="${y0}" width="${w}" height="${h}"/>`;
+ const shaper=f=>{b+=fpath(fpoly(x=>x,x0,y0,w,h),'fref')+fpath(fpoly(f,x0,y0,w,h),'fcurve')+ftext(x0+w/2,y0+h+18,'input level →','fnote')+ftext(x0-8,y0+12,'out','fnote','end');};
+ const resp=(f,label)=>{let d='';for(let i=0;i<=200;i++){const hz=20*Math.pow(1000,i/200),db=Math.max(-36,Math.min(12,f(hz)));d+=(i?'L':'M')+(x0+w*i/200).toFixed(1)+' '+(y0+h*(12-db)/48).toFixed(1);}
+  b+=fpath(d,'fcurve')+[20,200,2000,20000].map((hz,i)=>ftext(x0+w*i/3,y0+h+18,hz>=1000?hz/1000+'k':hz,'fnote')).join('')+ftext(x0+w,y0+h+32,label,'fnote','end');};
+ const lp=(hz,fc,q)=>{const r=hz/fc;return -10*Math.log10((1-r*r)**2+(r/q)**2);};
+ const lines=(fs,cls,y=0,hgt=1)=>fs.map(([hz,a])=>{const x=x0+w*Math.log(hz/20)/Math.log(1000);return x<x0||x>x0+w?'':`<line class="${cls}" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${y0+h}" y2="${(y0+h-h*.85*a*hgt).toFixed(1)}"/>`;}).join('');
+ const axis=()=>{b+=[20,200,2000,20000].map((hz,i)=>ftext(x0+w*i/3,y0+h+18,hz>=1000?hz/1000+'k':hz,'fnote')).join('')+ftext(x0+w,y0+h+32,'Hz','fnote','end');};
+ switch(type){
+ case 'CLIP':shaper(x=>Math.max(-1,Math.min(1,2.6*x)));break;
+ case 'FOLD':shaper(x=>{let v=2.4*x;for(let k=0;k<4;k++){if(v>1)v=2-v;else if(v<-1)v=-2-v;}return v;});break;
+ case 'WRAP':shaper(x=>{const v=2.2*x;return ((v+1)%2+2)%2-1;});break;
+ case 'LP':resp(hz=>lp(hz,800,3),'RES lifts the peak at Cutoff');break;
+ case 'HP':resp(hz=>lp(800,hz,3),'RES lifts the peak at Cutoff');break;
+ case 'BP':resp(hz=>{const r=hz/800;return -10*Math.log10(1+3*3*(r-1/r)**2);},'a band around Cutoff');break;
+ case 'DJ':resp(hz=>lp(hz,400,.9),'left: low-pass');{let d='';for(let i=0;i<=200;i++){const hz=20*Math.pow(1000,i/200),db=Math.max(-36,Math.min(12,lp(2500,hz,.9)));d+=(i?'L':'M')+(x0+w*i/200).toFixed(1)+' '+(y0+h*(12-db)/48).toFixed(1);}b+=fpath(d,'fcurve2')+ftext(x0+w,y0+14,'right: high-pass','fnote2','end');}break;
+ case 'SHFT':case 'SPRD':case 'RING':{const ps=[1,2,3,4,5].map(k=>[110*k,1/k**.4]);axis();b+=lines(ps,'fref2');
+  if(type==='SHFT')b+=lines(ps.map(([f,a])=>[f+90,a]),'fbar');
+  if(type==='SPRD')b+=lines(ps.map(([f,a])=>[f+90,a]),'fbar')+lines(ps.map(([f,a])=>[f-90>20?f-90:21,a]),'fbar2');
+  if(type==='RING')b+=lines(ps.flatMap(([f,a])=>[[f+90,a*.7],[Math.abs(f-90)||21,a*.7]]),'fbar');
+  b+=ftext(x0+w,y0+14,type==='SPRD'?'grey: input · left up · right down':type==='RING'?'grey: input · both sidebands':'grey: input · +90 Hz: no longer harmonic','fnote','end');}break;
+ default:{const r=type==='CHRD'?RATIOS[CHORDS[FS.chord]].map(s=>2**(s/12)):RATIOS[type];axis();
+  b+=lines(r.map((k,i)=>[65.4*k,1-i*.08]),'fbar')+ftext(x0+w,y0+14,(type==='CHRD'?CHORDS[FS.chord]+' on C2':type==='BELL'?'bell partials on C2':'harmonics of C2')+' · higher partials decay sooner','fnote','end');}}
+ return fsvg(W,H,'What '+type+' does',b);}
+// ---- Synth
+const ENG=[['VA','Plaits virtual analog: two oscillators, saw / square / sync'],['Cluster','Four oscillators over 16 waves: Harm spreads them, Timbre warps, Morph scans, Seed re-rolls']];
+const DEST=['Off','Timbre','Harm','Morph','Cutoff'],SRC=['LFO','LFO2','Env'];
+function synthFlow(){const d=FS.dest,src=FS.src,tx={1:200,2:240,3:280,4:410};let b='';
+ b+=wire('M130 60 L 170 60',true)+wire('M330 60 L 360 60',true)+wire('M460 60 L 490 60',true)+wire('M590 60 L 600 60',true);
+ b+=node(10,30,120,60,'MIDI','on MIDI Ch','lit')+node(170,20,160,80,ENG[FS.eng][0],'Timbre · Harm · Morph','lit')+node(360,30,100,60,'Filter','Cutoff · Reso')+node(490,30,100,60,'Amp','Attack · Release');
+ SRC.forEach((s,i)=>{const x=150+i*150,on=d[i]>0,t=tx[d[i]];if(on)b+=wire(`M${x+50} 160 C ${x+50} 120 ${t} 130 ${t} ${d[i]===4?92:102}`,i===src,i===src?'':'dim');
+  b+=node(x,160,100,44,s,on?'→ '+DEST[d[i]]:'off',i===src?'lit':'');});
+ b+=`<g class="gnote"><text x="606" y="64" text-anchor="start">track</text><text x="330" y="232">two sources on one destination add up · Drone plays with no MIDI</text></g>`;
+ return fsvg(660,240,'Synth signal flow',b);}
+const PAGES=[[['SYN ON','Timbre','Harm','Morph'],['Attack','Cutoff','Release','Reso']],[['LFO S','LFO2 S','LFO A','LFO2 A'],['Env %','Env Atk','Env Dec','Seed (Cluster)']]];
+function synthKnobs(){const p=PAGES[FS.page];return '<table class="gtable"><tr><th>Encoder</th><th>Left</th><th>Right</th></tr>'+[0,1,2,3].map(i=>`<tr><td>${i+1}</td><td>${p[0][i]}</td><td>${p[1][i]}</td></tr>`).join('')+'</table>';}
+// ---- DJ EQ
+const DJP4=[['Default',[200,1000,5000]],['Xone:92',[250,840,2500]],['Xone:96',[180,620,3000]],['DJM-V10',[200,690,2000]]],DJP3=[['Default',[300,3000]],['DJM',[270,3600]],['Xone:42',[710,1800]],['Rane',[600,2200]],['Evo4',[490,2800]]];
+function djBands(){const four=FS.bands===0,p=four?DJP4[FS.p4]:DJP3[FS.p3],xs=p[1],names=four?['Low','Lo Mid','Hi Mid','High']:['Low','Mid','High'],x0=30,w=600,y0=20,h=110;
+ const X=hz=>x0+w*Math.log(hz/20)/Math.log(1000),edges=[20,...xs,20000];let b='';
+ names.forEach((n,i)=>{const a=X(edges[i]),z=X(edges[i+1]),k=FS.kill[four?i:[0,1,3][i]];
+  b+=`<g data-f-kill="${four?i:[0,1,3][i]}" style="cursor:pointer"><rect class="${k?'fkill':'fband'+(i%2)}" x="${a.toFixed(1)}" y="${y0+(k?h-14:0)}" width="${(z-a).toFixed(1)}" height="${k?14:h}" rx="4"/>${ftext((a+z)/2,y0+(k?h-24:h/2+5),k?'KILL '+n.toUpperCase():n,k?'fkilltext':'fbandtext')}</g>`;});
+ b+=xs.map(hz=>`<line class="fxover" x1="${X(hz)}" x2="${X(hz)}" y1="${y0-6}" y2="${y0+h+6}"/>`+ftext(X(hz),y0+h+22,hz>=1000?(hz/1000)+' kHz':hz+' Hz','fnote')).join('');
+ b+=ftext(x0,y0+h+22,'20 Hz','fnote','start')+ftext(x0+w,y0+h+22,'20 kHz','fnote','end');
+ return fsvg(660,160,'DJ EQ band split',b);}
+// ---- Out 2 clock
+const PPQ=['Off','1','2','4','8','12','24'],PPQN=[0,1,2,4,8,12,24];
+function clockTimeline(){const x0=70,w=560,y=[46,96],play=FS.play;let b='';
+ for(let q=0;q<=4;q++)b+=`<line class="fgrid" x1="${x0+w*q/4}" x2="${x0+w*q/4}" y1="20" y2="120"/>`+(q<4?ftext(x0+w*q/4+w/8,16,'beat '+(q+1),'fnote'):'');
+ [['L',FS.l],['R',FS.r]].forEach(([c,r],i)=>{const n=PPQN[r];b+=ftext(x0-10,y[i]+5,'Out 2 '+c,'fnote','end')+`<line class="fbase" x1="${x0}" x2="${x0+w}" y1="${y[i]+14}" y2="${y[i]+14}"/>`;
+  if(n&&play)for(let k=0;k<4*n;k++){const x=x0+w*k/(4*n);b+=`<rect class="fpulse" x="${x.toFixed(1)}" y="${y[i]-10}" width="3" height="24"/>`;}
+  else b+=ftext(x0+w/2,y[i]+8,n?'no pulses while stopped':'Off: Out 2 '+c+' plays audio','fnote');});
+ if(play)b+=`<line class="fhead" x1="${x0}" x2="${x0}" y1="22" y2="118"/>`;
+ return fsvg(660,140,'One bar of clock pulses',b);}
+function clockRouting(){const l=PPQN[FS.l],r=PPQN[FS.r],mono=FS.mono===0;let b='';
+ b+=node(10,40,150,110,'bluebox','Out 2 L · Out 2 R','lit');
+ [[l,'L',70],[r,'R',120]].forEach(([n,c,y])=>{b+=wire(`M160 ${y} C 230 ${y} 240 ${y===70?50:140} 300 ${y===70?50:140}`,!!n,n?'':'dim');b+=node(300,y===70?25:115,170,50,n?n+' PPQ clock':'Audio',n?'to a clock input':'Out 2 '+c+' as usual',n?'lit':'');});
+ const o2=mono?l>0:(l>0||r>0),o3=mono&&r>0,tile=(x,on,s)=>`<rect class="${on?'fgrey':'ftile'}" x="${x}" y="42" width="52" height="30" rx="5"/>${ftext(x+26,62,s,on?'fgreytext':'fbandtext')}`;
+ b+=ftext(500,30,'MIXER sends','fnote','start')+tile(500,o2,'O 2')+(mono?tile(560,o3,'O 3'):'');
+ b+=ftext(500,94,mono?(o2||o3?'grey: used by a clock':'both carry audio'):'Stereo: one O 2 send','fnote','start')+(mono&&r>0?ftext(500,114,'TRACK knob 8: Gate','fnote','start'):'');
+ return fsvg(660,170,'Out 2 clock routing',b);}
+// ---- User Settings template flow, MIDI Learn
+function tplFlow(){return fsvg(660,120,'DEFAULT template',node(10,30,180,60,'DEFAULT','your template project','lit')+wire('M190 60 L 250 60',true)+node(250,30,160,60,'PROJ › File › New','name the project')+wire('M410 60 L 470 60',true)+node(470,30,180,60,'New project','settings kept · clips cleared','lit'));}
+const FEATURES=[
+ ['inserts','Track inserts',()=>{const g=INS[FS.grp],t=g[1][Math.min(FS.type,g[1].length-1)];
+  return `<p>Every track has an insert effect after its EQ and gate. On TRACK, ${kbd('A')} cycles the native controls, then the insert’s. ${kbd('INSRT')} switches it on (off on a new track); the group button beside it picks the group and the type knob steps through it. Changes fade through dry.</p>${fchain(3)}
+  ${fseg('grp',INS.map(x=>x[0]),FS.grp)}${fseg('type',g[1].map(x=>x[0]),Math.min(FS.type,g[1].length-1))}${t[0]==='CHRD'?fseg('chord',CHORDS,FS.chord):''}
+  <p class="gdesc"><b>${t[0]}</b>: ${t[1]}. Knobs: ${g[2]}.</p>${insPlot(t[0])}
+  <p class="muted">Saved per track and captured by scenes; every knob except the type can be MIDI-learned. Resonator tails ring out, then the insert stops using CPU until sound returns.</p>`;}],
+ ['synth','Synth tracks',()=>`<p>Any track can play a built-in mono synth from MIDI. On TRACK press ${kbd('TRACK')} to cycle Normal → Sidechain → <b>Synth</b>, then tap ${kbd('SYN ON')}. It needs no input, plays on its <b>MIDI Ch</b> with velocity and last-note priority, and everything after it (gate, inserts, DJ EQ, mixer) works as on any track.</p>
+  ${fseg('eng',ENG.map(e=>e[0]),FS.eng)}<p class="gdesc">${ENG[FS.eng][1]}${FS.eng===0?' (Mutable Instruments Plaits by Émilie Gillet, MIT licence)':''}.</p>
+  <p class="gsub">Modulation: pick a source, then where it goes (B menu: LFO Dest, LFO2 Dest, Env Dest)</p>${fseg('src',SRC,FS.src)}${fseg('dest',DEST,FS.dest[FS.src])}
+  <div>${synthFlow()}</div>
+  <p class="gsub">Knobs: ${kbd('A')} cycles page 1 and page 2, left then right · ${kbd('B')} opens the setup menu</p>${fseg('page',['Page 1','Page 2'],FS.page)}${synthKnobs()}
+  <p class="muted">Every knob can be MIDI-learned; Cutoff, LFO rates and envelope times follow the encoder’s curve by CC. Scenes don’t include synth settings. Each synth track uses roughly 6 % of the audio CPU.</p>`],
+ ['dj','DJ EQ',()=>`<p>A DJ-style EQ and filter on every track, after its EQ, gate and insert. Press ${kbd('EQ')} until the third view: EQ → EQ full screen → <b>DJ</b>. ${kbd('A')} switches between the bands and Filter / Res; the buttons on the right kill bands. ${kbd('B')} opens the DJ settings.</p>
+  ${fseg('bands',['4 Bands','3 Bands'],FS.bands)}${FS.bands===0?fseg('p4',DJP4.map(p=>p[0]),FS.p4):fseg('p3',DJP3.map(p=>p[0]),FS.p3)}
+  ${djBands()}<p class="muted">Tap a band to kill it, as the kill buttons do (again to bring it back). Presets move the crossovers to match known mixers.</p>
+  ${FT([['Bands','0 dB at the centre; left to −26 dB (ISO kills at the far left), right to +6 dB'],['Filter','Left: low-pass down to 40 Hz · right: high-pass up to 10 kHz · centre: off'],['Settings','Curve ISO (steep, sums flat) or EQ (gentle) · crossovers · Filter Slope 12 / 24 dB · Res Max']])}
+  <p class="muted">A track with everything at its centre costs no CPU; in use 4 bands cost about 3 % per track, the filter about 0.6 %. Saved in the project and captured by scenes. By <a class="glink" href="https://github.com/milanwulf">Milan Wulf</a> (<a class="glink" href="https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2">pull request #2</a>).</p>`],
+ ['clock','Out 2 clock',()=>`<p>PROJ › ${kbd('B')} › <b>Clk Out L</b> and <b>Clk Out R</b> turn Out 2’s left and right channels into analog clocks for modular gear: short (5 ms) positive pulses at 1, 2, 4, 8, 12 or 24 pulses per quarter note (PPQ), following the bluebox tempo or the MIDI clock it follows.</p>
+  <div class="gcalc"><label>Clk Out L ${fseg('l',PPQ,FS.l)}</label><label>Clk Out R ${fseg('r',PPQ,FS.r)}</label></div>
+  ${fseg('mono',['OUT2 Mode Mono','Stereo'],FS.mono)} ${fseg('play',['Stopped','Playing'],FS.play)}
+  <div>${clockTimeline()}</div><div>${clockRouting()}</div>
+  <p class="muted">Pulses run only while the transport plays; Out 2’s level sets their height. A channel that is Off keeps its audio, and older projects start with both Off. Tested with O_C and Endorphin.es Ghost; check your module accepts a line-level pulse (4 PPQ is a common clock input).</p>`],
+ ['user','User Settings',()=>`<p>TOOLS › tap <b>User Settings</b> (or select it and press ${kbd('B')}). ${kbd('B')} goes back.</p>
+  ${FT([['Dim No Input','On (default): tracks with no input are greyed on the track headers. Off: no greying'],['Track Knob 8','Gate (default) or OUT3 for TRACK’s eighth knob, in OUT2 Mode Mono; A reaches the other one on a third TRACK page'],['Hide DEFAULT','On: the template project is left out of the PROJ list']])}
+  <p class="gsub">New-project template</p><p>Save a project named <code>DEFAULT</code> with the routing, effects and settings you always start from. PROJ › File › New then starts from it.</p>${tplFlow()}`]];
+function renderFeatures(){const tabs=el('featTabs'),body=el('featBody');if(!tabs||!body)return;
+ tabs.innerHTML=FEATURES.map(([k,l])=>`<button type="button" data-f-topic="${k}" aria-pressed="${k===FS.topic}">${l}</button>`).join('');
+ body.innerHTML=(FEATURES.find(f=>f[0]===FS.topic)||FEATURES[0])[2]();}
+const froot=el('features');
+if(froot){froot.onclick=e=>{const t=e.target.closest?.('[data-f-topic]'),s=e.target.closest?.('[data-f-set]'),k=e.target.closest?.('[data-f-kill]');
+  if(t){FS.topic=t.dataset.fTopic;}
+  else if(s){const [key,v]=s.dataset.fSet.split(':'),n=+v;if(key==='dest')FS.dest[FS.src]=n;else{FS[key]=n;if(key==='grp')FS.type=0;if(key==='bands'||key==='p4'||key==='p3')FS.kill=[0,0,0,0];}}
+  else if(k){const i=+k.dataset.fKill;FS.kill[i]=FS.kill[i]?0:1;}
+  else return;
+  renderFeatures();};renderFeatures();}
 const GUIDE_BODY={
  scenes:()=>`<p>Scenes recall a mix instantly, without loading the project. Each project keeps up to 16, saved in the project file.</p>
   ${steps(['Press '+kbd('PROJ')+' and select a project in the list.','Press '+kbd('A')+': the scene page opens with the project name at the top.','Turn a top encoder to pick a row, a bottom encoder to change its number.','Tap '+kbd('Select')+'. Press '+kbd('A')+' to leave.'])}
   ${seg('row',SCENE_ROWS.map(r=>r[0]),G.row)}<p class="gdesc">${SCENE_ROWS[G.row][1]}</p>
-  <p class="gsub">A scene is a snapshot of:</p><ul class="gincl">${['track level','pregain','pan','sends','mute','solo','compressor','EQ','gate','the master and aux buses','every FX1/FX2 parameter, including the effect type','the BPM'].map(x=>'<li>'+x+'</li>').join('')}</ul>
+  <p class="gsub">A scene is a snapshot of:</p><ul class="gincl">${['track level','pregain','pan','sends','mute','solo','compressor','EQ','gate','track inserts','DJ EQ','the master and aux buses','every FX1/FX2 parameter, including the effect type','the BPM'].map(x=>'<li>'+x+'</li>').join('')}</ul>
   <p class="muted">In the PROJ list the loaded project shows <code>* </code>; a new project starts at scene 1.</p>`,
  quick:()=>`<p>Save the next empty scene without leaving MAIN.</p>
   ${steps(['On '+kbd('MAIN')+', hold '+kbd('A')+'.','The band at the top shows <code>HOLD A: SAVE SCENE n</code> and fills.','At 2 s the scene is saved (<code>SCENE n SAVED</code>) and so is the project. Let go earlier and nothing is saved.'])}

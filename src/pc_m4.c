@@ -27,12 +27,22 @@ static void sc_boot(void);
 #define PC_BANKNUM_ROW 0x28eu
 #define PC_CH 0x28fu /* settings "PC Ch" (key scenech): 0 All, 1 None, 2..17 = MIDI channel 1..16;
                          filters both Bank Select and Program Change */
-#define PC_BANK_CH 0x290u /* s3/s3.1 "Bank Ch": unused since s3.2, kept so settings.tml still parses */
+#define PC_BANK_CH 0x290u /* s3/s3.1 "Bank Ch", unused since s3.2. S21: Tools "Dim No Input" (key dimnoinput,
+                         read by cue_m4.c): 0 On (stock Cobalt look), 1 Off; old bankch values are ignored */
 #define PC_MIDI_ROW 0x291u /* Tools row "MIDI Settings": a tap, or B with the row selected, opens the MIDI page */
 #define PC_DIN_OUT 0x292u /* m3 MIDI page "DIN Out" (key dinout): 0 Default, 1 USB Thru, 2 All Thru */
 #define PC_CC_SYNC 0x293u /* m8 MIDI page "Map CC Sync" (key ccsync, was m3 dinsync): 0 Off, 1 USB, 2 USB+MIDI Out, 3 MIDI Out */
 #define PC_CLK_SRC 0x294u /* m6 MIDI page "Clock Src" (key clksrc): 0 MIDI In first, 1 USB first */
 #define PC_LAST_TAG 0x294u
+#define PC_USER_ROW 0x1e9u /* S25 Tools row "User Settings" (key usermenu): a tap, or B with the row
+                            selected, opens the User Settings page (Dim No Input, Track Knob 8) */
+#define PC_CELL_USER 0x1cu /* S25: User Settings page cell, like PC_CELL_MIDI */
+#define PC_HIDE_TEMPLATE 0x1eau /* S27 User Settings "Hide DEFAULT" (key hidedefault): 0 Off, 1 On */
+/* S28: the template is a project named DEFAULT (the on-device keyboard has
+ * no underscore); any case, and _DEFAULT (made on a computer) also counts. */
+#define PC_TPL_WAIT 0x54504c57u /* tpl_wait while a New waits for the template */
+#define PC_TRACK_KNOB8 0x1e8u /* S24 Tools "Track Knob 8" (key trkknob8): 0 Gate, 1 OUT3 (OUT2 Mode Mono only);
+                                read by gate_m4.h. A stock definition id free in stock and in Cobalt. */
 #define PC_CELL_SCENES 0x17u /* edit page (B page) cells of our own */
 #define PC_CELL_MIDI 0x1bu
 #define PC_PAGE_MAIN 8u
@@ -44,7 +54,9 @@ static void sc_boot(void);
 #define PC_CLOCK_MS 500u /* MIDI realtime seen this recently = external clock */
 /* pending: Program Change from the IRQ (PC_MSG). want: Bank Select waiting to
  * load (PC_MSG), since: UI ms clock of its arrival. page: 0x100|page to return
- * to after a bank load. kb/kb_hash/kp_mode: unused since s3. */
+ * to after a bank load. kb/kb_hash/kp_mode: unused since s3; S9b reuses them
+ * for the Bank Select diagnostic (kb: code|bank<<8, kb_hash: tenths of a
+ * second, kp_mode: load start ms + 1, 0 while no load runs). */
 struct pc_state {uint32_t magic,pending,kb,kb_hash,want,since,page,kp_mode;};
 #define PC_STATE ((volatile struct pc_state *)0x38800fe0u)
 #define PC_MAGIC 0x50434d31u
@@ -164,7 +176,8 @@ void pc_defs_hook(void *table,unsigned id,unsigned type,const char *label,int mi
     STOCK_DEF(table,PC_SAVE_ROW,1,"Save Scene:",1,16,"scenesave");
     def_enum(table,PC_BANKNUM_ROW,"Bank #:",bank_num,PC_SLOTS+1,"bankassign"); /* 0 shows "None" */
     def_enum(table,PC_CH,"PC Ch:",channels,18,"scenech");
-    def_enum(table,PC_BANK_CH,"Bank Ch:",channels,18,"bankch");
+    static const char *const dim_empty[2]={"On","Off"};
+    def_enum(table,PC_BANK_CH,"Dim No Input:",dim_empty,2,"dimnoinput");
     def_enum(table,PC_MIDI_ROW,"MIDI Settings",midi_open,1,"midimenu"); /* one value: turning does nothing */
     static const char *const din_out[3]={"Default","USB Thru","All Thru"};
     static const char *const cc_sync[4]={"Off","USB","USB+MIDI Out","MIDI Out"};
@@ -172,6 +185,11 @@ void pc_defs_hook(void *table,unsigned id,unsigned type,const char *label,int mi
     def_enum(table,PC_CC_SYNC,"Map CC Sync:",cc_sync,4,"ccsync");
     static const char *const clk_src[2]={"MIDI In","USB"};
     def_enum(table,PC_CLK_SRC,"Clock Src:",clk_src,2,"clksrc");
+    static const char *const knob8[2]={"Gate","OUT3"};
+    def_enum(table,PC_TRACK_KNOB8,"Track Knob 8:",knob8,2,"trkknob8");
+    def_enum(table,PC_USER_ROW,"User Settings",midi_open,1,"usermenu"); /* one value, like MIDI Settings */
+    static const char *const off_on[2]={"Off","On"};
+    def_enum(table,PC_HIDE_TEMPLATE,"Hide DEFAULT:",off_on,2,"hidedefault");
     sc_boot(); /* runs once per boot, before the main loop */
 }
 /* settings.tml defaults: the reader only fills tags present here. */
@@ -180,11 +198,14 @@ void pc_settings_defaults(void *set,unsigned id,int value) {
     for(unsigned i=0;i<PC_SLOTS;i++)STOCK_ADD(set,PC_TAG0+i,0);
     STOCK_ADD(set,PC_BANK_CC,0);   /* MIDI page */
     STOCK_ADD(set,PC_CH,0);        /* All */
-    STOCK_ADD(set,PC_BANK_CH,0);   /* unused */
+    STOCK_ADD(set,PC_BANK_CH,0);   /* Tools: Dim No Input On */
     STOCK_ADD(set,PC_MIDI_ROW,0);  /* Tools row; a tap opens the MIDI page */
     STOCK_ADD(set,PC_DIN_OUT,0);   /* MIDI page: Default */
     STOCK_ADD(set,PC_CC_SYNC,1);   /* MIDI page: USB */
     STOCK_ADD(set,PC_CLK_SRC,0);   /* MIDI page: MIDI In first */
+    STOCK_ADD(set,PC_TRACK_KNOB8,0); /* User Settings: TRACK's eighth knob is Gate */
+    STOCK_ADD(set,PC_USER_ROW,0);    /* Tools row; a tap opens the User Settings page */
+    STOCK_ADD(set,PC_HIDE_TEMPLATE,0); /* User Settings: DEFAULT shown in PROJ */
 }
 
 /* MIDI poll (TIM4 IRQ) at 0x0810341a: r0=status, r4=message (data1 at +1).
@@ -282,7 +303,66 @@ static void pc_sequence(volatile struct pc_transport *t,uint32_t now) {
     }
     if(now-t->posted>15000u)t->phase=0;
 }
+/* S9c: stock project loads, seen where they happen. The main loop drains
+ * PresetMgr results (GetResult 0x0811e3e4 clears the pending-load name on the
+ * load-done result 3, and 0x0812670a applies the project) before the
+ * 0x081269d8 hook runs pc_main. A load that finished between two passes had
+ * cleared the name before pc_main could see it: the Bank Select sequence then
+ * stayed in PC_PHASE_POSTED until its 15 s timeout, ignoring Bank Selects.
+ * pc_load_request replaces the bl to the load request 0x0811e86c (sets the
+ * name, posts PresetMgr command 0x22; every load: Bank Select, PROJ Load,
+ * boot) and pc_load_result the bl to 0x0811e910 on result 3. */
+static void pc_diag(unsigned code,unsigned bank,uint32_t ms);
+#define D_DONE_CODE 9u
+void pc_load_request(void *pm,const char *name);
+static int pc_same(const char *a,const char *b) {while(*a && *a==*b){a++;b++;}return *a==*b;}
+/* S28: DEFAULT, default, _DEFAULT ... */
+static int pc_is_template(const char *n) {
+    static const char t[]="DEFAULT";
+    if(*n=='_')n++;
+    unsigned i=0;
+    for(;t[i];i++){char c=n[i];if(c>='a' && c<='z')c=(char)(c-32);if(c!=t[i])return 0;}
+    return n[i]==0;
+}
+/* S27: load a project by name, as LoadBank (0x08125b10) does after it reads
+ * the name from the PROJ list: stop the engine, clear, then the load
+ * request. Returns 0 while another load is pending. */
+static int pc_load_named(const char *name) {
+    if(!((int (*)(void *))0x08105261u)((void *)0x3001734cu))return 0;
+    uint32_t ipc=*(volatile uint32_t *)0x3000a894u;
+    ((void (*)(uint32_t,unsigned,unsigned,unsigned,unsigned))0x081087e9u)(ipc,0x7bu,0x18u,0u,0u);
+    ((void (*)(void *))0x08122cf9u)(PC_SESSION);
+    ((void (*)(void *))0x08122c2du)(PC_SESSION);
+    PC_SESSION[0x73b3]=0;
+    ((void (*)(uint32_t,unsigned,unsigned,unsigned))0x08108785u)(ipc,0x19u,0xedu,0u);
+    pc_load_request((void *)0x30016fd0u,name);
+    return 1;
+}
+static void pc_template_cancel(const char *name);
+void pc_load_request(void *pm,const char *name) {
+    pc_template_cancel(name);
+    ((void (*)(void *,const char *))0x0811e86du)(pm,name);
+    volatile struct pc_state *s=pc_state();
+    if(pc_loading() && !s->kp_mode)s->kp_mode=PC_UI_NOW+1u;
+}
+static void pc_template_done(void);
+void pc_load_result(void *pm,void *tracks) {
+    ((void (*)(void *,void *))0x0811e911u)(pm,tracks);
+    pc_template_done();
+    volatile struct pc_state *s=pc_state();
+    volatile struct pc_transport *t=PC_TRANSPORT;
+    uint32_t now=PC_UI_NOW;
+    uint32_t start=s->kp_mode && s->kp_mode-1u<=now ? s->kp_mode-1u : (t->phase&0xfu) ? t->posted : now;
+    s->kp_mode=0;
+    pc_diag(D_DONE_CODE,0,now-start);
+    if(t->phase&0xfu){t->phase=(t->phase&PC_RESTART)|PC_PHASE_LOADING;t->quiet=now;}
+}
 static void sc_main(int busy);
+/* What each Bank Select did and how long every project load took (any load:
+ * Bank Select, PROJ Load, boot), kept in pc_state (kb, kb_hash) for the
+ * checks. S9b showed it on the band; that diagnostic is gone since 1.3 dev. */
+enum {D_LOADING=1,D_REC,D_RUNNING,D_WAITING,D_SAME,D_NONE,D_DROPPED,D_MISSING,D_DONE};
+_Static_assert(D_DONE==D_DONE_CODE,"pc_load_result reports D_DONE");
 static void sc_request(unsigned program);
 static void pc_quicksave(uint32_t now);
 static void pc_autosave(int busy);
@@ -328,20 +408,33 @@ void pc_main(void *inputs) {
     int playing=pc_playing(t,now);
     if(t->phase)pc_sequence(t,now);
     int busy=PC_RECORDING || pc_loading() || t->phase;
+    /* Backup SRAM keeps kp_mode over a reset, when the UI clock restarts. */
+    if(s->kp_mode && s->kp_mode-1u>now)s->kp_mode=now+1u;
+    if(pc_loading()){if(!s->kp_mode)s->kp_mode=now+1u;}
+    else if(s->kp_mode){pc_diag(D_DONE,0,now-(s->kp_mode-1u));s->kp_mode=0;}
     uint32_t bank=fw_get(PC_SETTINGS,PC_BANK_CC)==1 ? lsb : msb;
     if((bank&PC_MSG) && pc_channel_ok(PC_CH,bank)){
-        if(busy || !pc_bank_target(bank))s->want=0;
+        unsigned n=(bank&0x7fu)+1u;
+        if(busy || !pc_bank_target(bank)){
+            s->want=0;
+            if(PC_RECORDING)pc_diag(D_REC,n,0);
+            else if(pc_loading())pc_diag(D_RUNNING,n,s->kp_mode?now-(s->kp_mode-1u):0);
+            else if(t->phase)pc_diag(D_WAITING,n,now-t->posted);
+            else pc_diag(fw_get(PC_SETTINGS,PC_TAG0+(bank&0x7fu))?D_SAME:D_NONE,n,0);
+        }
         else {s->want=bank;s->since=now;}
     }
     if((p&PC_MSG) && pc_channel_ok(PC_CH,p))sc_request(p&0x7fu);
     if(s->want&PC_MSG){
-        if(busy)s->want=0;
+        if(busy){pc_diag(D_DROPPED,(s->want&0x7fu)+1u,0);s->want=0;}
         else if(now-s->since>=PC_SETTLE_MS){
             uint32_t h=pc_bank_target(s->want);
+            unsigned n=(s->want&0x7fu)+1u,found=0;
             s->want=0;
             char name[256];
             if(h)for(unsigned i=0;PC_LIST_NAME(PC_LIST,i,name);i++)
                 if(pc_hash(name)==h){
+                    found=1;pc_diag(D_LOADING,n,0);
                     int external=t->clock_ms && now-t->clock_ms<PC_CLOCK_MS;
                     s->page=0x100u|PC_PAGE;
                     t->posted=now;t->quiet=now;
@@ -349,6 +442,7 @@ void pc_main(void *inputs) {
                     pc_post_load(i);
                     break;
                 }
+            if(h && !found)pc_diag(D_MISSING,n,0);
         }
     }
     sc_main(pc_loading() || t->phase || (s->want&PC_MSG));
@@ -368,7 +462,8 @@ void pc_after_load(void *session,unsigned page,unsigned a,unsigned b) {
 }
 /* Tools (settings) panel lists every settings tag (0x08121e82): keep the PC slots out. */
 void pc_tools_append(void *list,unsigned id,int value) {
-    if(id>=PC_TAG0 && id<=PC_LAST_TAG && id!=PC_MIDI_ROW)return; /* Bank # slots and the MIDI page settings */
+    if(id>=PC_TAG0 && id<=PC_LAST_TAG && id!=PC_MIDI_ROW)return; /* Bank # slots, MIDI and User Settings page settings */
+    if(id==PC_TRACK_KNOB8 || id==PC_HIDE_TEMPLATE)return; /* User Settings page */
     if(id==0x117u)return; /* MIDIStopRcv: moved to the MIDI page */
     ((void (*)(void *,unsigned,int))0x08138547u)(list,id,value);
 }
@@ -401,6 +496,10 @@ enum {T_RECALL=1,T_EMPTY,T_SAVED,T_NOSLOTS,T_BANK,T_BANK_CLEAR,T_BANK_USED,T_MOU
 static void pc_toast(unsigned kind,unsigned n) {
     uint32_t *t=sc_field(F_TOAST),*u=sc_field(F_TOAST_UNTIL);
     if(t && u){*t=PC_TOAST(kind,n);*u=PC_UI_NOW+1500u;}
+}
+static void pc_diag(unsigned code,unsigned bank,uint32_t ms) {
+    volatile struct pc_state *s=pc_state();
+    s->kb=code|bank<<8;s->kb_hash=(ms+50u)/100u;
 }
 #define PC_EDIT_VT 0x0814ca10u
 static uint8_t *pc_app_view(uint32_t offset,uint32_t vtable) {
@@ -442,6 +541,8 @@ static void pc_open_scenes(void) {
     ((void (*)(void *,unsigned,unsigned,unsigned))0x08122509u)(PC_SESSION,PC_PAGE_PROJSET,0,0);
 }
 static void pc_open_midi(void) {pc_post_ui(0xabu,PC_CELL_MIDI);}
+static void pc_open_user(void) {pc_post_ui(0xabu,PC_CELL_USER);}
+static unsigned pc_menu_row(unsigned id) {return id==PC_MIDI_ROW || id==PC_USER_ROW;}
 /* The edit page's bottom bar (view+0x34) holds one button (view+0x888, id at
  * +0x14) that stock leaves empty, full width. The scene page labels it
  * "Select" at the right, where the browser's Load button sits; a tap posts
@@ -474,6 +575,12 @@ int pc_page_rows(void *session,uint16_t *cell,void *list) {
         for(unsigned i=0;i<sizeof ids/sizeof ids[0];i++)append(list,ids[i],fw_get(PC_SETTINGS,ids[i]));
         return 1;
     }
+    if(*cell==PC_CELL_USER){
+        static const uint16_t ids[]={PC_BANK_CH,PC_TRACK_KNOB8,PC_HIDE_TEMPLATE}; /* Dim No Input, Track Knob 8, Hide DEFAULT */
+        *(uint32_t *)list=0;
+        for(unsigned i=0;i<sizeof ids/sizeof ids[0];i++)append(list,ids[i],fw_get(PC_SETTINGS,ids[i]));
+        return 1;
+    }
     return ((int (*)(void *,uint16_t *,void *))0x08121cf5u)(session,cell,list);
 }
 /* Bank # n (1-128) already belongs to a project other than h. */
@@ -499,7 +606,7 @@ void pc_knob(void *session,uint16_t *cell,unsigned id,int value,int extra) {
         }
         return;
     }
-    if(*cell==PC_CELL_MIDI){
+    if(*cell==PC_CELL_MIDI || *cell==PC_CELL_USER){
         uint16_t settings=0x18;
         knob(session,&settings,id,value,extra);
         pc_save();
@@ -510,7 +617,7 @@ void pc_knob(void *session,uint16_t *cell,unsigned id,int value,int extra) {
 /* Tools view event method (vtable 0x0814ba3c, stock 0x08131210): the "MIDI:"
  * row has no value to change; swallow its edits (0x3c/0x3d, id at +0x10). */
 int pc_tools_event(void *view,struct pc_event *e) {
-    if((e->id==0x3cu || e->id==0x3du) && e->b==PC_MIDI_ROW)return 0;
+    if((e->id==0x3cu || e->id==0x3du) && pc_menu_row(e->b))return 0;
     return ((int (*)(void *,void *))0x08131211u)(view,e);
 }
 /* List widget event method (vtable slot 0x0814cac4, stock 0x0813d89c, shared by
@@ -519,8 +626,11 @@ int pc_tools_event(void *view,struct pc_event *e) {
  * MIDI page. Rows: list+0xe8+i*0x330, id at +0x32c; count at list+0x99e8. */
 int pc_list_event(uint8_t *list,struct pc_event *e) {
     int r=((int (*)(void *,void *))0x0813d89du)(list,e);
-    if(e->id==0x145u && e->a<*(uint32_t *)(list+0x99e8u) &&
-       *(uint16_t *)(list+0xe8u+e->a*0x330u+0x32cu)==PC_MIDI_ROW)pc_open_midi();
+    if(e->id==0x145u && e->a<*(uint32_t *)(list+0x99e8u)) {
+        unsigned id=*(uint16_t *)(list+0xe8u+e->a*0x330u+0x32cu);
+        if(id==PC_MIDI_ROW)pc_open_midi();
+        else if(id==PC_USER_ROW)pc_open_user();
+    }
     return r;
 }
 /* Select on the scene page: act on the selected row. */
@@ -578,12 +688,15 @@ void pc_button_b(void *session,unsigned arg) {
         uint32_t shown=*(uint32_t *)(app+0x2b4u);
         uint8_t *list=(uint8_t *)(app+0x119a88u+0x590u);
         uint32_t sel=*(uint32_t *)(list+0x99ecu);
-        if(shown==app+0x119a88u && sel<*(uint32_t *)(list+0x99e8u) &&
-           *(uint16_t *)(list+0xe8u+sel*0x330u+0x32cu)==PC_MIDI_ROW)go=1;
-        else if(shown==app+0x1e978u && *(uint16_t *)(app+0x1e978u+0xa3e0u)==PC_CELL_MIDI)go=2;
+        unsigned row=shown==app+0x119a88u && sel<*(uint32_t *)(list+0x99e8u) ? *(uint16_t *)(list+0xe8u+sel*0x330u+0x32cu) : 0u;
+        unsigned cell=*(uint16_t *)(app+0x1e978u+0xa3e0u);
+        if(row==PC_MIDI_ROW)go=1;
+        else if(row==PC_USER_ROW)go=3;
+        else if(shown==app+0x1e978u && (cell==PC_CELL_MIDI || cell==PC_CELL_USER))go=2;
     }
     ((void (*)(void *,unsigned))0x08123819u)(session,arg);
     if(go==1)pc_open_midi();
+    else if(go==3)pc_open_user();
     else if(go==2)pc_post_ui(0xcbu,0);
 }
 /* PROJ Save button (0x0813e4a8, bl SessionMgr::Save 0x081224d4): a Bank #
@@ -730,6 +843,7 @@ static char *pc_num(char *d,unsigned n) {
     while(i)*d++=t[--i];
     *d=0;return d;
 }
+/* Tenths of a second as "12.3 S" (up to 99999.9). */
 static int pc_message(char *out,unsigned *fill) {
     uint32_t now=PC_UI_NOW;
     uint32_t held=*sc_field(F_HELD),done=*sc_field(F_DONE);
@@ -839,13 +953,6 @@ static void pc_list_scroll(uint32_t now) {
     }
     *key=k;*at=now;*off=o;
 }
-/* PROJ File > New (0x0813e8a2) and LoadBank with no projects (0x08125cfc)
- * create the project through 0x08122e3c without the project reader, so the
- * scene bank is cleared here: a new project starts at scene 1. */
-void pc_new_project(void *session,const char *name) {
-    sc_clear();
-    ((void (*)(void *,const char *))0x08122e3du)(session,name);
-}
 /* Rename 0x0813e822 / delete 0x0813e5c0: keep assignments following the name. */
 void pc_rename(void *session,const char *old,const char *name) {
     ((void (*)(void *,const char *,const char *))0x08122469u)(session,old,name);
@@ -867,7 +974,7 @@ void pc_delete(void *session,const char *name) {
  * allocated once per boot from the stock heap; its pointer lives in the
  * M4-only backup-SRAM line 0xfc0 (after Cobalt's 14-byte GR tick). */
 #define SC_SCENES 16u
-#define SC_MAX 640u
+#define SC_MAX 768u /* spectral-dj: inserts (7/track) + DJ EQ (6/track, 4 Main) past 640 */
 #define SC_BATCH 24u /* knob-path replays per main-loop pass (engine queue: 256) */
 #define SC_CELL_MAX 64u
 struct sc_item {uint8_t cell,pad;uint16_t id;};
@@ -898,6 +1005,12 @@ struct sc_bank {
     uint32_t mo_clk_usb;
     /* m7: Clock Src value last seen + 1 (0 before the first look), for the band */
     uint32_t mo_clk_seen;
+    /* S27: project template. tpl_seen: the last Projects scan found the
+     * template (tpl_src: its name as listed); tpl_wait == PC_TPL_WAIT: a New
+     * is waiting for it to load, tpl_name the new project's name. */
+    uint32_t tpl_seen,tpl_wait,tpl_at;
+    char tpl_name[64];
+    char tpl_src[16];
 };
 struct sc_ptr {uint32_t magic;struct sc_bank *bank;};
 #define SC_PTR ((volatile struct sc_ptr *)0x38800fd0u)
@@ -932,10 +1045,12 @@ static uint8_t *sc_table(unsigned cell) {
  * parameter (cells 0x14/0x15); BPM from the project settings (cell 0x16). */
 static int sc_allowed(unsigned cell,unsigned id) {
     int eq=id>=0x119u && id<=0x12fu;
+    /* F6: and the insert (type, Drive/Tone/Mix/Output, On, chord 0x1de). */
     if(cell<12u)return eq || id==0x4u || id==0x3u || id==0x63u || id==0xdau || id==0xdbu ||
-        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu;
+        (id>=0x15du && id<=0x161u) || id==0x163u || id==0x1aeu || (id>=0x1bau && id<=0x1beu) || id==0x1d5u || id==0x1deu ||
+        (id>=0x18du && id<=0x192u); /* DJ EQ */
     if(cell==0x0cu)return eq || id==0x4u || id==0x160u || id==0xb5u || (id>=0x130u && id<=0x13bu) ||
-        id==0x43u || (id>=0x1b6u && id<=0x1b8u);
+        id==0x43u || (id>=0x1b6u && id<=0x1b8u) || (id>=0x193u && id<=0x196u); /* DJ EQ settings */
     if(cell<=0x12u)return id==0x4u || id==0x160u;
     if(cell==0x16u)return id==0x85u; /* project settings: BPM only */
     return 1;
@@ -960,6 +1075,9 @@ static void sc_boot(void) {
     b->scroll_key=0;b->scroll_at=0;b->scroll_off=0;
     b->mo_attached=0;b->mo_loading=0;b->mo_pending=0;b->mo_at=0;b->mo_flip=0;b->mo_mark=0;b->mo_count=0;
     b->mo_dumping=0;b->mo_cursor=0;b->mo_busy_since=0;b->mo_din=0;b->mo_to=0;b->mo_clk_src=0;b->mo_clk_at=0;b->mo_clk_usb=0;b->mo_clk_seen=0;
+    /* S28: the allocation is not zeroed: a stale tpl_wait made the boot load
+     * create a project with a garbage name. */
+    b->tpl_seen=0;b->tpl_wait=0;b->tpl_at=0;b->tpl_name[0]=0;b->tpl_src[0]=0;
     b->magic=SC_MAGIC;
     p->bank=b;p->magic=SC_MAGIC;
 }
@@ -1406,4 +1524,68 @@ static void mo_main(uint32_t now) {
 /* m8: the band only reports a dump that could not be sent. */
 static char *mo_message(char *d,unsigned n) {
     return pc_cat(d,n==MO_STUCK ? "MAP CC SYNC: USB OUT STUCK" : "MAP CC SYNC: MIDI OUT STUCK");
+}
+
+/* PROJ File > New (0x0813e8a2) and LoadBank with no projects (0x08125cfc)
+ * create the project through 0x08122e3c without the project reader, so the
+ * scene bank is cleared here: a new project starts at scene 1. */
+void pc_new_project(void *session,const char *name) {
+    sc_clear();
+    /* S27: a project named DEFAULT is the template for new projects: load
+     * it, then (pc_load_result) the stock "SaveAs Template" (0x08122e7c)
+     * makes the new project from it. That call uses the loaded project, not
+     * the browser selection: it keeps every setting and clears the clips
+     * and track recordings. Without DEFAULT, or for DEFAULT itself, the
+     * stock New runs. */
+    struct sc_bank *b=sc_bank();
+    unsigned n=0;
+    if(name)while(name[n] && n<sizeof b->tpl_name)n++;
+    if(b && b->tpl_seen==1u && b->tpl_src[0] && name && n && n<sizeof b->tpl_name && !pc_is_template(name)) {
+        b->tpl_wait=0;
+        char src[sizeof b->tpl_src];
+        for(unsigned i=0;i<sizeof src;i++)src[i]=b->tpl_src[i];
+        if(pc_load_named(src)) {
+            for(unsigned i=0;i<=n;i++)b->tpl_name[i]=name[i];
+            b->tpl_wait=PC_TPL_WAIT;b->tpl_at=PC_UI_NOW;
+            return;
+        }
+    }
+    ((void (*)(void *,const char *))0x08122e3du)(session,name);
+}
+/* Any other load requested while a New waits for the template: forget the New. */
+static void pc_template_cancel(const char *name) {
+    struct sc_bank *b=sc_bank();
+    if(b && b->tpl_wait && !(name && pc_same(name,b->tpl_src)))b->tpl_wait=0;
+}
+/* After the template loaded: make the waiting new project from it. */
+static void pc_template_done(void) {
+    struct sc_bank *b=sc_bank();
+    if(!b || b->tpl_wait!=PC_TPL_WAIT)return;
+    b->tpl_wait=0;
+    unsigned n=0;
+    while(n<sizeof b->tpl_name && b->tpl_name[n]>=0x20 && b->tpl_name[n]<0x7f)n++;
+    if(!n || n>=sizeof b->tpl_name || b->tpl_name[n])return; /* not a name: do nothing */
+    sc_clear();
+    if(PC_SESSION[0x73a2])((void (*)(void *,const char *,unsigned))0x08122e7du)(PC_SESSION,b->tpl_name,0);
+    else ((void (*)(void *,const char *))0x08122e3du)(PC_SESSION,b->tpl_name); /* not loaded: stock New */
+}
+/* Projects scan (0x0811f70c): its list clear (0x0811f726) and both appends
+ * (0x0811f770, 0x0811f7be) to the PROJ list. the template is noted, and left
+ * out while Hide DEFAULT is On, so every list index stays consistent. */
+void pc_list_clear(void *list) {
+    struct sc_bank *b=sc_bank();
+    if(b){b->tpl_seen=0;b->tpl_src[0]=0;}
+    ((void (*)(void *))0x08101e95u)(list);
+}
+void pc_list_add(void *list,const char *name) {
+    if(name && pc_is_template(name)) {
+        struct sc_bank *b=sc_bank();
+        if(b && !b->tpl_seen){
+            unsigned i=0;
+            for(;name[i] && i<sizeof b->tpl_src-1u;i++)b->tpl_src[i]=name[i];
+            b->tpl_src[i]=0;b->tpl_seen=1;
+        }
+        if(fw_get(PC_SETTINGS,PC_HIDE_TEMPLATE)==1)return;
+    }
+    ((void (*)(void *,const char *))0x08101e9bu)(list,name);
 }

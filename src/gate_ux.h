@@ -80,7 +80,11 @@ unsigned gate_ux_pos(int db,unsigned width) {
     if(db>0)db=0;
     return ((unsigned)(db+96000)*(width-1u)+48000u)/96000u;
 }
-/* Unavailable/old/mismatched snapshots must not masquerade as a closed gate.
+/* Unavailable or stale snapshots must not masquerade as a closed gate.
+ * A fresh snapshot whose threshold differs from the knob (a CC or encoder
+ * sweep the audio core has not caught up with yet) still shows the state
+ * the audio core really has, at its own threshold, instead of "--": with a
+ * MIDI controller the status otherwise blinked "--" during every move.
  * Return: 0 pending, 1 Off, 2 open, 3 fade, 4 closed. */
 unsigned gate_ux_state(unsigned ch,int requested,struct gate_audio_diag *out) {
     if(ch>=12)return 0;
@@ -88,8 +92,9 @@ unsigned gate_ux_state(unsigned ch,int requested,struct gate_audio_diag *out) {
     if(!gd_snapshot((int)ch,out))return 0;
     volatile struct gate_ux_track *s=&GX[ch];uint32_t now=UI_NOW;
     if(s->seq!=out->seq){s->seq=out->seq;s->changed=now;}
-    if((uint32_t)(now-s->changed)>500u || out->threshold!=requested)return 0;
-    if(requested<=-96000)return 1;
+    (void)requested;
+    if((uint32_t)(now-s->changed)>500u)return 0;
+    if(out->threshold<=-96000)return 1;
     if(!(out->gain>=0.f && out->gain<=1.f))return 0;
     if(out->gain==0.f)return 4;
     return out->gain>=.9999f?2:3;
@@ -114,6 +119,17 @@ static void gx_center(uint8_t *px,unsigned stride,unsigned fmt,unsigned bpp,
     unsigned len=0;while(text[len] && len<8)len++;
     gx_text(px,stride,fmt,bpp,x+(w-(int)(len*6u-1u))/2,y,text,color);
 }
+/* S11: MIDI Learn label ("ch:cc") of the Gate knob on TRACK. The native
+ * label (knob overlay +0x2f4, label child +0x34, text +0x31) is drawn by the
+ * widget, then painted over by gate_ux_control below, so on the device it
+ * never showed (S9c) and neither did the S9d black box behind it. While the
+ * overlay is shown with a mapping, this view draws the text itself in place
+ * of the GATE title: control-active colour on a black box, as asked in S9c. */
+static const char *gate_learn_text(const uint8_t *w) {
+    const uint8_t *overlay=w+0x2f4;
+    const char *text=(const char *)overlay+0x34+0x31;
+    return !overlay[0x30] && text[0] ? text : 0;
+}
 /* Replace only the existing Gate control's own drawing rectangle. Input and
  * touch remain native. Native coordinates have a bottom-left origin. */
 void gate_ux_control(uint8_t *px,unsigned stride,unsigned fmt,unsigned bpp,uint8_t *w) {
@@ -128,13 +144,20 @@ void gate_ux_control(uint8_t *px,unsigned stride,unsigned fmt,unsigned bpp,uint8
      * Leave a 2px perimeter untouched instead of painting over those pixels. */
     gx_rect(px,stride,fmt,bpp,x+2,top+2,width-4,height-4,bg);
     int y=top+(height-44)/2;
-    gx_center(px,stride,fmt,bpp,x,y+4,width,"GATE",accent);
+    const char *learn=gate_learn_text(w);
+    if(learn) {
+        unsigned len=0;while(learn[len] && len<8)len++;
+        int tw=(int)(len*6u-1u);
+        gx_rect(px,stride,fmt,bpp,x+(width-tw)/2-2,y+2,tw+4,11,theme_knob_palette[14]&0xffffffu);
+        gx_center(px,stride,fmt,bpp,x,y+4,width,learn,theme_knob_palette[27]&0xffffffu);
+    } else gx_center(px,stride,fmt,bpp,x,y+4,width,"GATE",accent);
     char value_text[54];value_text[0]=0;struct gd_line line={value_text,0};gd_db(&line,value,1);
     gx_center(px,stride,fmt,bpp,x,y+14,width,value_text,fg);
     /* A releasing gate still passes audio. Show OPN until applied gain is
      * zero; no intermediate FADE label or amber state is exposed. */
     const char *status=state==1?"OFF":state==4?"CLS":state>=2?"OPN":"--";
     uint32_t sc=state>=2 && state!=4?0x22bb22u:0xaaaaaau;
+    /* Combo: the learn label is drawn above (gate_learn_text); PR 2's copy dropped. */
     gx_center(px,stride,fmt,bpp,x,y+24,width,status,sc);
     int bw=width-8,by=y+35;
     gx_rect(px,stride,fmt,bpp,x+4,by,bw,4,0x303030u);
@@ -176,6 +199,7 @@ void gate_ux_tick(uint8_t *pages) {
 
 /* Retain the compressor redraw implementation verbatim. This wrapper adds
  * the independent Gate view refresh before its existing dirty traversal. */
+void insert_caption_tick(uint8_t *pages); /* F4: SPEC knob captions back after a turn (insert_m4.h) */
 void gate_ui_tick(uint8_t *pages,uint8_t *flags) {
-    gate_ux_tick(pages);gr_tick(pages,flags);
+    gate_ux_tick(pages);gr_tick(pages,flags);insert_caption_tick(pages);
 }

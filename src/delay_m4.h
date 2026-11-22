@@ -137,6 +137,23 @@ static struct fx_ui *ui_state(void) {
     }
     return u;
 }
+/* A value from the audio core (a mapped CC) for FX1 / FX2 reaches the M4 in
+ * 0x081252e0: it stores the value and only flags a page refresh, which also
+ * restarts this UI state, so no knob event shows its value text. The last
+ * such value is kept here, outside the UI state, and dly_tick shows it for
+ * three seconds like a turn. */
+struct fx_cc {uint32_t magic;uint16_t slot,id;uint32_t time;};
+#define FX_CC ((volatile struct fx_cc *)0x38800cc0u)
+#define FX_CC_MAGIC 0x46584343u
+_Static_assert(0xb00+sizeof(struct fx_ui)<=0xcc0,"FX UI state below the CC value note");
+static int value_index(unsigned id);
+void dly_param_from_m7(uint8_t *app,uint8_t *msg) {
+    ((void (*)(void *,void *))0x081252e1u)(app,msg);
+    unsigned slot=*(uint16_t *)(msg+8),id=*(uint16_t *)(msg+0xc);
+    if(msg[0]!=0x39 || !(slot==20 || (slot==21 && id>=SG_SAT && id<=SG_LOCUT)) || value_index(id)<0)return;
+    (void)ui_state();
+    FX_CC->slot=(uint16_t)slot;FX_CC->id=(uint16_t)id;FX_CC->time=UI_NOW;FX_CC->magic=FX_CC_MAGIC;
+}
 static int value_index(unsigned id) {
     if(id>=SG_SAT && id<=SG_LOCUT)return (int)(id-SG_SAT);
     switch(id){case G_POS:case T_DRIVE:case T_DUCK:case T_TONE:return 0;case G_SIZE:case T_SEGMENT:return 1;case G_DENSITY:return 2;case 0x4a:return 3;case G_JITTER:case T_RELEASE:return 4;case 0x33:return 5;case T_HICUT:return 6;case T_LOCUT:return 2;default:return -1;}
@@ -297,6 +314,18 @@ void dly_tick(uint8_t *p,void *flags) {
     unsigned slot=*(uint16_t *)(p+P_SLOT);
     if(u->panel!=p || !(slot==0x14 || (slot==0x15 && sg_selected((void *)0x300173d0u))))return;
     uint32_t now=UI_NOW;
+    if(FX_CC->magic==FX_CC_MAGIC) {
+        if(now-FX_CC->time>=3000u)FX_CC->magic=0;
+        else if(FX_CC->slot==slot)for(unsigned i=0;i<8;i++) {
+            uint8_t *w=KNOB_W(p,i);int k=value_index(*(uint16_t *)(w+0x94));
+            if(*(uint16_t *)(w+0x94)==FX_CC->id && k>=0 && !w[0x30]) {
+                /* The later of the last turn and the last CC starts the 3 s. */
+                if(!u->value[k].active || u->value[k].widget!=w || (int32_t)(FX_CC->time-u->value[k].last)>0)u->value[k].last=FX_CC->time;
+                u->value[k].widget=w;u->value[k].active=1;
+                break;
+            }
+        }
+    }
     for(unsigned i=0;i<7;i++)if(u->value[i].active) {
         struct ui_value *v=&u->value[i];uint8_t *w=v->widget;
         int valid=w && *(uint16_t *)(w+0x32)==slot && value_index(*(uint16_t *)(w+0x94))==(int)i;
@@ -389,6 +418,51 @@ void sg_title(void *label,const char *stock) {
  * so Density 4 yields (4-1)/4. Correct only its drawing fraction; the native
  * cursor range, input mapping, saved value and DSP remain 1..4 unchanged. */
 float dly_knob_fraction(uint8_t *w) {
+    if(*(uint16_t *)(w+0x32)<12 && (*(uint16_t *)(w+0x94)==SYN_LFO_SYNC || *(uint16_t *)(w+0x94)==SYN_LFO2_SYNC))
+        return SYN_LFO_SYNCED(*(int *)(w+0x98))?(float)(*(int *)(w+0x98)-1)/(float)(SYN_LFO_DIVISIONS-1u):0.f;
+    if(*(uint16_t *)(w+0x32)<12 && *(uint16_t *)(w+0x94)==SYN_ENV_ATTACK) {
+        int value=*(int *)(w+0x98);
+        if(value<=0)return 0.f;
+        if(value>=5000)return 1.f;
+        return lg2((float)(value+SYN_ENV_ATTACK_OFFSET)/(float)SYN_ENV_ATTACK_OFFSET)/lg2((float)(5000+SYN_ENV_ATTACK_OFFSET)/(float)SYN_ENV_ATTACK_OFFSET);
+    }
+    if(*(uint16_t *)(w+0x32)<12 && (*(uint16_t *)(w+0x94)==SYN_LFO_RATE || *(uint16_t *)(w+0x94)==SYN_LFO2_RATE)) {
+        /* S15: the ring follows the same log travel as the encoder. */
+        int value=*(int *)(w+0x98);
+        if(value<=10)return 0.f;
+        if(value>=20000)return 1.f;
+        return lg2((float)(value+SYN_LFO_RATE_OFFSET)/(float)(10+SYN_LFO_RATE_OFFSET))/lg2((float)(20000+SYN_LFO_RATE_OFFSET)/(float)(10+SYN_LFO_RATE_OFFSET));
+    }
+    if(*(uint16_t *)(w+0x32)<12 && *(uint16_t *)(w+0x94)==SYN_CUTOFF) {
+        int value=*(int *)(w+0x98);
+        if(value<=20)return 0.f;
+        if(value>=20000)return 1.f;
+        return lg2((float)value/20.f)/lg2(1000.f);
+    }
+    if(*(uint16_t *)(w+0x32)<12 && (*(uint16_t *)(w+0x94)==SYN_ATTACK || *(uint16_t *)(w+0x94)==SYN_RELEASE)) {
+        /* S23: Attack 1..2000 ms and Release 5..5000 ms on their log travel. */
+        int value=*(int *)(w+0x98),attack=*(uint16_t *)(w+0x94)==SYN_ATTACK;
+        float lo=attack?1.f:5.f,hi=attack?2000.f:5000.f,offset=attack?(float)SYN_ATTACK_OFFSET:0.f;
+        if(value<=(int)lo)return 0.f;
+        if(value>=(int)hi)return 1.f;
+        return lg2(((float)value+offset)/(lo+offset))/lg2((hi+offset)/(lo+offset));
+    }
+    if(*(uint16_t *)(w+0x32)<12 && *(uint16_t *)(w+0x94)==SYN_ENV_DECAY) {
+        /* S20: the ring follows the encoder's and the CC's log travel
+         * (5..5000 ms, as Cutoff); it was drawn linear. */
+        int value=*(int *)(w+0x98);
+        if(value<=5)return 0.f;
+        if(value>=5000)return 1.f;
+        return lg2((float)value/5.f)/lg2(1000.f);
+    }
+    if(*(uint16_t *)(w+0x32)<12 && *(uint16_t *)(w+0x94)==INS_MODE) {
+        /* Per group: CLIP, FOLD, WRAP or LP, BP, HP, DJ or SHFT, SPRD, RING,
+         * HARM, CHRD, BELL (0 and 2 show CLIP). */
+        int m=*(int *)(w+0x98);
+        if(m>=9)return (float)(m>14?5:m-9)*.2f;
+        if(m>=5)return (float)(m-5)*(1.f/3.f);
+        return m==3?.5f:m==4?1.f:0.f;
+    }
     if(*(uint16_t *)(w+0x32)==20 && *(uint16_t *)(w+0x94)==G_DENSITY) {
         int n=*(int *)(w+0x98);if(n<1)n=1;if(n>4)n=4;
         return (float)(n-1)/3.0f;
@@ -399,5 +473,5 @@ float dly_knob_fraction(uint8_t *w) {
  * middle at +d4, official version at +34. Reuse the empty field. */
 void dly_tools_version(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813820du)(label,stock);
-    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.2");
+    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.3d");
 }

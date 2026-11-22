@@ -3,11 +3,26 @@
 #include "gate_diag_ui.h"
 void gate_default(void *set,unsigned id,int value) {
     STOCK_ADD(set,id,value);STOCK_ADD(set,NG_ID4,-96000);
+    STOCK_ADD(set,INS_MODE,0);STOCK_ADD(set,INS_DRIVE,350);
+    STOCK_ADD(set,INS_TONE,650);STOCK_ADD(set,INS_MIX,1000);STOCK_ADD(set,INS_OUTPUT,0);STOCK_ADD(set,INS_ON,1);STOCK_ADD(set,INS_CHORD,0);
+    STOCK_ADD(set,SYN_ON,0);STOCK_ADD(set,SYN_ENGINE,0);STOCK_ADD(set,SYN_CHANNEL,1);
+    STOCK_ADD(set,SYN_HARMONICS,500);STOCK_ADD(set,SYN_TIMBRE,350);STOCK_ADD(set,SYN_MORPH,500);
+    STOCK_ADD(set,SYN_ATTACK,5);STOCK_ADD(set,SYN_RELEASE,150);STOCK_ADD(set,SYN_LEVEL,500);STOCK_ADD(set,SYN_DRONE,0);
+    STOCK_ADD(set,SYN_CUTOFF,20000);STOCK_ADD(set,SYN_LFO_RATE,1000);STOCK_ADD(set,SYN_LFO_DEST,0);
+    STOCK_ADD(set,SYN_LFO_AMOUNT,0);STOCK_ADD(set,SYN_ENV_DEST,0);STOCK_ADD(set,SYN_ENV_AMOUNT,0);STOCK_ADD(set,SYN_ENV_DECAY,500);STOCK_ADD(set,SYN_ENV_ATTACK,0);STOCK_ADD(set,SYN_LFO_SHAPE,0);STOCK_ADD(set,SYN_LFO_SYNC,0);STOCK_ADD(set,SYN_LFO_MODE,0);STOCK_ADD(set,SYN_SEED,0);
+    STOCK_ADD(set,SYN_LFO2_RATE,1000);STOCK_ADD(set,SYN_LFO2_DEST,0);STOCK_ADD(set,SYN_LFO2_AMOUNT,0);STOCK_ADD(set,SYN_LFO2_SHAPE,0);STOCK_ADD(set,SYN_LFO2_SYNC,0);STOCK_ADD(set,SYN_LFO2_MODE,0);STOCK_ADD(set,SYN_RESO,0);
 }
 /* Match the native sends-group visibility in 0x0812e706: setting 0
  * displays the six-output group; nonzero displays the five-output group.
  * Reversing this selects OUT3 when the visible sixth Gate button is pressed. */
 static unsigned gate_quad(void) {return fw_get((uint8_t *)0x300173d0u+0xe78,0x18c)==0;}
+/* S24: Tools "Track Knob 8" (settings tag 0x1e8, pc_m4.c) = OUT3 gives
+ * TRACK's eighth knob back to OUT3 while OUT2 Mode is Mono (the only mode
+ * with OUT3); Gate then stays on the MIXER sends page. */
+#define TRACK_KNOB8 0x1e8u
+static unsigned gate_track_out3(void) {
+    return gate_quad() && fw_get((uint8_t *)0x300173d0u+0x737c,TRACK_KNOB8)==1;
+}
 static void gate_knob_bind(uint8_t *w,unsigned ch,int value) {
     ((void (*)(void *,unsigned,int,unsigned))0x08127b85u)(w,NG_ID4,value,1);
     *(uint16_t *)(w+0x32)=(uint16_t)ch;
@@ -170,12 +185,23 @@ void *gate_mix_construct(uint8_t *p) {
 }
 /* Reuse the Track page's eighth native knob (OUT3), beside OUT2. OUT3
  * remains available on the MIXER sends page in Quad output mode. */
-void gate_track_bind(uint8_t *p,uint8_t *info) {
+/* S25: the eighth knob carries Gate on page 1 unless Track Knob 8 is OUT3;
+ * the third TRACK page (extra, Mono only) carries the other one. */
+/* S26: OUT3 is live only in Mono and while Clk Out R (PROJ B, kind-8
+ * project set +0xe68, id 0x111) does not use Out 2 right as a clock; else
+ * TRACK treats it as absent, as in Stereo: Gate on knob 8, no third page. */
+static unsigned gate_out3_live(void) {
+    return gate_quad() && fw_get((uint8_t *)0x300173d0u+0xe68,0x111)==0;
+}
+static unsigned gate_knob8_gate(unsigned extra) {return !gate_out3_live() || gate_track_out3()==(extra!=0);}
+static void gate_track_bind_page(uint8_t *p,uint8_t *info,unsigned extra) {
     ((void (*)(void *,void *))0x081328f9u)(p,info);
     unsigned ch=*(uint16_t *)(info+4);if(ch>=12)return;
+    if(!gate_knob8_gate(extra)){gd_ui()->track_knob=0;return;} /* native OUT3 stays */
     uint8_t *w=p+0xde48;
     int value=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,NG_ID4);
     gate_knob_bind(w,ch,value);
     w[0x2d4]=0;w[0x30]=0;
     gd_track_bind(w,ch);
 }
+void gate_track_bind(uint8_t *p,uint8_t *info) {gate_track_bind_page(p,info,0);}

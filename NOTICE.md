@@ -31,3 +31,25 @@ Cobalt's own work includes the compressor gain-reduction meters, the FX1
 delay modes (Delay, Granular, Tape, Ducked, Reverse), the FX2 Gazer reverb,
 the per-track noise gate, tape-style master saturation, the overdub recording
 fix, the theme editor and the browser and Python patchers.
+
+Cobalt's own work also includes the synth tracks' Cluster engine, the track
+inserts (drive, filter, frequency shifter and resonator bank), the Out 2
+clock, scenes, the MIDI features and the User Settings page.
+
+## Mutable Instruments Plaits
+
+The synth tracks' **VA** engine is the virtual analog engine of Mutable
+Instruments **Plaits** by Émilie Gillet
+(https://github.com/pichenettes/eurorack), used under the MIT licence. The
+original copyright and permission notices are kept in the source files under
+`vendor/mutable/`; `vendor/mutable/PROVENANCE.md` lists the pinned commits
+and the few marked edits (sample rate and memory layout, no change to the
+sound equations).
+
+## Contributions
+
+- Phones Src AUTO, cue icons and greyed unconfigured tracks (v1.2): Milan
+  Wulf, [pull request #1](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/1).
+- DJ EQ and filter, DJ view, kill buttons and their MIDI learn (v1.3): Milan
+  Wulf, [pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2),
+  integrated with a faster filter implementation and Cobalt's memory layout.

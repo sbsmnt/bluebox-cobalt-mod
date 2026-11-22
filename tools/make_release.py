@@ -1,6 +1,9 @@
 """Build the standalone patcher from compiled code; no stock firmware is shipped."""
 from html import escape
-import base64,hashlib,json,pathlib,struct,sys
+import base64,hashlib,json,os,pathlib,struct,sys
+# Diagnostic only (CPU A/B on hardware): COMBO_DIAG_NO_DJ=1 leaves the DJ
+# audio step out (DJ UI stays, does nothing). Never used by the tests.
+NO_DJ=os.environ.get('COMBO_DIAG_NO_DJ')=='1'
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 STOCK_HASH='38a7944c9eed15dac18e2dac89e7574c9112f60b20324d77a4c26ba522607126'
 def branch(at,target):
@@ -15,6 +18,10 @@ stock=pathlib.Path(sys.argv[1]).read_bytes()
 if hashlib.sha256(stock).hexdigest()!=STOCK_HASH:raise SystemExit('Wrong stock firmware: desktop 1.5.2 exact image required')
 patched=bytearray(stock);patches=[]
 def add(name,address,old,new):
+    # This image contains application firmware, not the device bootloader.
+    # Also preserve both application vector/early startup blocks verbatim.
+    if address<0x08041000 or (address<0x08101000 and address+len(new)>0x08100000):
+        raise ValueError('Patch outside permitted application-only region: '+name)
     offset=address-0x08040000
     if len(old)!=len(new) or stock[offset:offset+len(old)]!=old:raise ValueError('Unexpected original bytes: '+name)
     for p in patches:
@@ -36,8 +43,22 @@ add('compressor process pointer',0x0806a24c,struct.pack('<I',0x08042649),struct.
 cue4code=(ROOT/'build'/'cue4.bin').read_bytes()
 if len(cue4code)>0x4000:raise ValueError('cue icon code cave too large')
 cue4={f[2]:int(f[0],16) for line in (ROOT/'build'/'cue4.symbols').read_text().splitlines() if len(f:=line.split())==3}
-add('M4 cue icon code',0x080d8000,bytes(len(cue4code)),cue4code)
-add('settings redraw check call',0x0813408e,branch(0x0813408e,0x08139586),branch(0x0813408e,cue4['cue_ui_tick']))
+add('M4 cue icon code',0x0809c000,bytes(len(cue4code)),cue4code)
+# DJ EQ (M4, PR 2 via combo): parameters, defaults, the DJ view; chained in front of Cobalt's,
+# the insert and the synth hooks (DJ M4 cave 0x0808c000).
+dj4code=(ROOT/'build'/'dj4.bin').read_bytes()
+if len(dj4code)>0x4000:raise ValueError('DJ EQ UI code cave too large')
+dj4={f[2]:int(f[0],16) for line in (ROOT/'build'/'dj4.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('M4 DJ EQ code',0x0808c000,bytes(len(dj4code)),dj4code)
+add('settings redraw check call',0x0813408e,branch(0x0813408e,0x08139586),branch(0x0813408e,dj4['dj_ui_tick']))
+add('EQ full screen press opens the DJ view',0x08123b4e,branch(0x08123b4e,0x08122508),branch(0x08123b4e,dj4['dj_eq_from_full']))
+for at in (0x08122632,0x08122664):
+ add('TRACK view LED is EQ in the DJ view '+hex(at),at,branch(at,0x08102a4c),branch(at,dj4['dj_led']))
+add('B on the DJ settings (view 9) returns to the DJ view',0x08123a06,branch(0x08123a06,0x08122508),branch(0x08123a06,dj4['dj_b_main_settings']))
+add('TRACK from another view ends DJ mode',0x08123af4,branch(0x08123af4,0x08122508),branch(0x08123af4,dj4['dj_track_other']))
+add('B in the DJ view opens the DJ settings, not the inputs',0x08123a12,branch(0x08123a12,0x08122508),branch(0x08123a12,dj4['dj_b_press']))
+add('TRACK press in the DJ view opens TRACK, not Side Chain',0x08123b00,branch(0x08123b00,0x08122508),branch(0x08123b00,dj4['dj_track_press']))
+add('EQ press from other views (DJ view back to EQ)',0x08123b36,branch(0x08123b36,0x08122508),branch(0x08123b36,dj4['dj_eq_other']))
 # Theme .data is copied from flash 0x0814d230 to SRAM 0x30000000 at startup.
 # The stock palette getter 0x08101064 indexes it by r1. Slot 4 is observed in
 # the selected-row draw path; slot 32 is the second pink theme accent.
@@ -45,15 +66,20 @@ for slot in (4,32):
     add(f'purple UI palette slot {slot}',0x0814d230+4*slot,
         struct.pack('<I',0xffff6af3),struct.pack('<I',0xff9455fa))
 PC={f[2]:int(f[0],16) for line in (ROOT/'build'/'pcm4.symbols').read_text().splitlines() if len(f:=line.split())==3}
-add('parameter definitions final call',0x08135fec,branch(0x08135fec,0x08134c8c),branch(0x08135fec,PC['pc_defs_hook']))
-add('master defaults final add',0x08120848,branch(0x08120848,0x0812028e),branch(0x08120848,symbols(4)['sat_default']))
+add('parameter definitions final call',0x08135fec,branch(0x08135fec,0x08134c8c),branch(0x08135fec,dj4['dj_defs']))
+add('master defaults final add',0x08120848,branch(0x08120848,0x0812028e),branch(0x08120848,dj4['dj_master_default']))
 add('master settings saturation row',0x0814aea2,bytes(8),struct.pack('<4H',0x43,0x1b6,0x1b7,0x1b8))
 # Extended delay: independently mapped desktop 1.5.2 locations.
 dcode=(ROOT/'build'/'delay7.bin').read_bytes()
 if len(dcode)>0x8000:raise ValueError('delay code cave too large')
 ds={f[2]:int(f[0],16) for line in (ROOT/'build'/'delay7.symbols').read_text().splitlines() if len(f:=line.split())==3}
 add('M7 granular and extended delay code',0x080a8000,bytes(len(dcode)),dcode)
-add('delay graph constructor call',0x08050f1a,branch(0x08050f1a,0x08052478),branch(0x08050f1a,ds['dly_construct']))
+# DJ EQ (M7): its SDRAM block is taken right after Cobalt's delay construction.
+djcode=(ROOT/'build'/'dj7.bin').read_bytes()
+if len(djcode)>0x4000:raise ValueError('DJ EQ code cave too large')
+djs={f[2]:int(f[0],16) for line in (ROOT/'build'/'dj7.symbols').read_text().splitlines() if len(f:=line.split())==3}
+add('M7 DJ EQ code',0x080b4000,bytes(len(djcode)),djcode)
+add('delay graph constructor call',0x08050f1a,branch(0x08050f1a,0x08052478),branch(0x08050f1a,ds['dly_construct'] if NO_DJ else djs['dj_construct']))
 add('delay process pointer',0x0806b014,struct.pack('<I',0x08053179),struct.pack('<I',ds['dly_process']|1))
 add('reverb send process pointer',0x0806a33c,struct.pack('<I',0x080489a1),struct.pack('<I',ds['delay_reverb_process']|1))
 add('FX1 native input gate capture',0x08052c8c,branch(0x08052c8c,0x0804df54),branch(0x08052c8c,ds['dly_input_gate']))
@@ -76,6 +102,7 @@ add('FX shared selector list fill',0x08139b74,branch(0x08139b74,0x08139aec),bran
 add('FX1 selector row to saved mode',0x0814c62c,struct.pack('<I',0x08139aa9),struct.pack('<I',symbols(4)['dly_selector_event']|1))
 add('FX encoder input',0x0812b4aa,branch(0x0812b4aa,0x08127d50),branch(0x0812b4aa,symbols(4)['dly_turn']))
 add('FX timed value update',0x0814b594,struct.pack('<I',0x0812afd9),struct.pack('<I',symbols(4)['dly_tick']|1))
+add('FX value text for values from the audio core (mapped CCs)',0x08126b3c,branch(0x08126b3c,0x081252e0),branch(0x08126b3c,symbols(4)['dly_param_from_m7']))
 add('FX mode change event handler',0x0814b5c4,struct.pack('<I',0x0812b461),struct.pack('<I',symbols(4)['dly_event']|1))
 add('FX layout wrapper',0x0812b4c4,branch(0x0812b4c4,0x0812b090),branch(0x0812b4c4,symbols(4)['dly_layout']))
 # Native A switch: actions14/15 are FX1; use the existing cycle event164 arm.
@@ -99,37 +126,74 @@ ngcode=(ROOT/'build'/'gate7.bin').read_bytes()
 if len(ngcode)>0x8000:raise ValueError('gate code cave too large')
 ngs={f[2]:int(f[0],16) for line in (ROOT/'build'/'gate7.symbols').read_text().splitlines() if len(f:=line.split())==3}
 add('M7 adaptive gate code',0x080c0000,bytes(len(ngcode)),ngcode)
-add('channel EQ gate process pointer',0x0806a2b4,struct.pack('<I',0x08043b91),struct.pack('<I',ngs['gate_process']|1))
+add('channel EQ gate, inserts and DJ EQ process pointer',0x0806a2b4,struct.pack('<I',0x08043b91),struct.pack('<I',(ngs['gate_process'] if NO_DJ else djs['dj_process_node'])|1))
+# S9b: MIDI-mapped CCs for Gate, insert and synth parameters: their ranges in
+# the M7's own definition table, and delivery to the track's own event queue.
+add('M7 MIDI map definitions build',0x0804f41c,branch(0x0804f41c,0x0805342c),branch(0x0804f41c,ngs['learn_defs_build']))
+add('M7 MIDI map event post',0x0804f1ca,branch(0x0804f1ca,0x08053418),branch(0x0804f1ca,ngs['learn_post']))
 # exp.7: MIXER Gate view meters show the detector input on the Gate fader's
 # scale (restores the v0.9.7 publication overrides, with the scale mapping).
 for at,old,new in [(0x0804f8be,0x0804bab0,'gate_meter_mono_shim'),(0x0804f9c6,0x0804bacc,'gate_meter_stereo_shim'),(0x0804f9e0,0x0804bacc,'gate_meter_stereo_shim')]:
  add('Gate input meter '+hex(at),at,branch(at,old),branch(at,ngs[new]))
 for at in [0x0804304a,0x08050c96,0x08051062]:
  add('gate EQ owner constructor '+hex(at),at,branch(at,0x08042e60),branch(at,ngs['gate_construct']))
-add('TRACK Gate fine encoder',0x08133248,branch(0x08133248,0x08127d50),branch(0x08133248,symbols(4)['gate_turn']))
+# MIDI-mapped CCs for Cobalt parameters: the M7's own definition copy gets
+# their ranges, and the Gate threshold also reaches its track's queue.
+# All three native four-band EQ allocation sites (factory clone, input tracks,
+# Main). Keep the native 0x1cc-byte object and place the insert sidecar at
+# +0x1d0: 88 bytes of drive/filter state, S8a's type and On/Off, S8f's WRAP
+# history: 0x240 bytes, as S28. (Spectral F3: the frequency shifter's state
+# is NOT here; growing these 13 objects exhausted the M7 heap at boot. It
+# lives in an SDRAM block from the delay's boot-time arena, delay_m7.c.) Main's processing still bypasses the
+# insert. No global SRAM bank.
+for at in [0x0804303e,0x08050c88,0x08051056]:
+ add('EQ allocation with insert sidecar '+hex(at),at,bytes.fromhex('4ff4e670'),bytes.fromhex('40f24020')) # movw r0,#0x240
+add('EQ deleting destructor sized-delete hint',0x08042e4e,bytes.fromhex('4ff4e671'),bytes.fromhex('40f24021')) # movw r1,#0x240
+add('TRACK encoders: Gate fine steps, DJ view Low on the fourth',0x08133248,branch(0x08133248,0x08127d50),branch(0x08133248,dj4['dj_turn_shim']))
 add('Gate knob Off formatting',0x08127a08,branch(0x08127a08,0x081403c4),branch(0x08127a08,symbols(4)['gate_db_shim']))
-add('channel defaults append gate',0x08120534,branch(0x08120534,0x0812028e),branch(0x08120534,symbols(4)['gate_default']))
+add('channel defaults append gate',0x08120534,branch(0x08120534,0x0812028e),branch(0x08120534,dj4['dj_channel_default']))
+for at in (0x0812390e,0x0812391a):
+ add('TRACK A insert-bank cycle '+hex(at),at,branch(at,0x08122508),branch(at,symbols(4)['insert_track_a_action']))
+add('TRACK construct insert group button',0x08134a2c,branch(0x08134a2c,0x081323b8),branch(0x08134a2c,symbols(4)['insert_track_construct']))
+add('TRACK actual focus group observer',0x081345fe,branch(0x081345fe,0x081327cc),branch(0x081345fe,symbols(4)['insert_track_group']))
+add('TRACK insert encoder dispatch',0x0814bb70,struct.pack('<I',0x08133195),struct.pack('<I',symbols(4)['insert_track_event']|1))
 add('MIXER construct sixth Gate button',0x081349dc,branch(0x081349dc,0x0812dadc),branch(0x081349dc,symbols(4)['gate_mix_construct']))
 add('MIXER ignore Main gate edits',0x0814b7d8,struct.pack('<I',0x0812e755),struct.pack('<I',symbols(4)['gate_mix_event']|1))
 add('MIXER shared Gate edit commit',0x0814b7d4,struct.pack('<I',0x0812e469),struct.pack('<I',symbols(4)['gate_mix_local']|1))
-add('TRACK shared Gate edit commit',0x0814bb6c,struct.pack('<I',0x08132e39),struct.pack('<I',symbols(4)['gate_track_local']|1))
+add('TRACK shared Gate edit commit',0x0814bb6c,struct.pack('<I',0x08132e39),struct.pack('<I',dj4['dj_track_local']|1))
 # Phones Src AUTO: cue bus while a track has its cue on, otherwise Main;
 # the same cue and input masks feed the track header icons (cue_m4.c).
 cuecode=(ROOT/'build'/'cue7.bin').read_bytes()
 if len(cuecode)>0x8000:raise ValueError('cue code cave too large')
 cues={f[2]:int(f[0],16) for line in (ROOT/'build'/'cue7.symbols').read_text().splitlines() if len(f:=line.split())==3}
-add('M7 phones auto cue code',0x080d0000,bytes(len(cuecode)),cuecode)
+add('M7 phones auto cue code',0x08098000,bytes(len(cuecode)),cuecode)
 add('output node phones auto process pointer',0x0806aa00,struct.pack('<I',0x0804e21d),struct.pack('<I',cues['cue_out_process']|1))
 add('mixer node process pointer records the mixer',0x0806af38,struct.pack('<I',0x0804fbad),struct.pack('<I',cues['cue_mixer_process']|1))
 add('Phones Src three choices',0x081358dc,bytes.fromhex('0223'),bytes.fromhex('0323'))
 add('Phones Src CUE MAIN AUTO list',0x08135b28,struct.pack('<I',0x0814bf34),struct.pack('<I',cues['cue_phones_names']))
+# Out 2 clock (c1, clock_m7.h): PROJ rows Clock In / Clock Out (0x110 /
+# 0x111) become Clk Out L / R, Off or 1-24 PPQ, with new keys and Off
+# defaults. The stock transport handlers for both ids read index 5 (24 PPQ),
+# the stock default, whatever the row says, so MIDI clock keeps working as
+# with untouched settings.
+add('Clk Out L/R seven choices 0x110',0x0813521e,bytes.fromhex('0623'),bytes.fromhex('0723'))
+add('Clk Out L/R seven choices 0x111',0x08135234,bytes.fromhex('0623'),bytes.fromhex('0723'))
+add('Clk Out L/R list',0x08135404,struct.pack('<I',0x0814bcb0),struct.pack('<I',cues['clk_rate_names']))
+add('Clk Out L label',0x08135408,struct.pack('<I',0x08147068),struct.pack('<I',cues['clk_label_l']))
+add('Clk Out R label',0x08135410,struct.pack('<I',0x08147080),struct.pack('<I',cues['clk_label_r']))
+add('Clk Out L key',0x08135400,struct.pack('<I',0x08147074),struct.pack('<I',cues['clk_key_l']))
+add('Clk Out R key',0x0813540c,struct.pack('<I',0x0814708c),struct.pack('<I',cues['clk_key_r']))
+add('Clk Out L default Off',0x081209ba,bytes.fromhex('0522'),bytes.fromhex('0022'))
+add('Clk Out R default Off',0x081209c6,bytes.fromhex('0522'),bytes.fromhex('0022'))
+add('transport Clock In PPQ fixed at 24',0x0805802c,bytes.fromhex('069a'),bytes.fromhex('0522'))
+add('transport Clock Out PPQ fixed at 24',0x08058018,bytes.fromhex('069a'),bytes.fromhex('0522'))
 add('MIXER sends Gate selector',0x0814b7f4,bytes(2),struct.pack('<H',0x1ae))
 for at in [0x0812e4c0,0x0812e4d0]:
  add('MIXER seventh button range '+hex(at),at,bytes.fromhex('0528' if at==0x0812e4c0 else '0529'),bytes.fromhex('0628' if at==0x0812e4c0 else '0629'))
 for at in [0x0812e4d8,0x0812e6a4]:
  add('MIXER sends selection '+hex(at),at,branch(at,0x0812e2e0),branch(at,symbols(4)['gate_mix_select']))
 for at in [0x081331c0,0x081331dc,0x081331fe]:
- add('Track Gate knob binding '+hex(at),at,branch(at,0x081328f8),branch(at,symbols(4)['gate_track_bind']))
+ add('Track Gate knob binding '+hex(at),at,branch(at,0x081328f8),branch(at,dj4['dj_track_bind']))
 # Gate uses native default/Vol metering. The earlier detector-input report
 # overrides are not installed; the compiled Gate processing stays unchanged.
 for at in [0x0812e830,0x08134586]:
@@ -161,16 +225,34 @@ for name,at,size,section,symbol,digest in (
 # Scenes experiment (bluebox-scenes, ../SCENES.md), on the PC-map machinery
 # (../../bluebox-pc-map/INVESTIGATION.md): Program Change recalls a scene,
 # Bank Select (CC 0) loads the project with that Bank # number.
-if len((ROOT/'build'/'cm4.bin').read_bytes())>0x4000:raise ValueError('Cobalt M4 code reaches the PC map payload')
+# S9: the synth/insert UI makes Cobalt's cm4 code larger than 16 KB, so the PC
+# map payload moves from 0x080BC000 to its own cave at 0x08090000 (zero flash
+# 0x0808A0D0-0x080A0000) and cm4 keeps its whole 32 KB cave.
+if len((ROOT/'build'/'cm4.bin').read_bytes())>0x8000:raise ValueError('Cobalt M4 code too large for its cave')
 pc_code=(ROOT/'build'/'pcm4.bin').read_bytes()
-if len(pc_code)>0x4000:raise ValueError('PC map code cave too large')
-add('M4 PC map code',0x080bc000,bytes(len(pc_code)),pc_code)
+if len(pc_code)>0x8000:raise ValueError('PC map code cave too large')
+add('M4 PC map code',0x08090000,bytes(len(pc_code)),pc_code)
 def bw(at,target):
  code=bytearray(branch(at,target));code[3]&=0xbf;return bytes(code)
 add('PC map MIDI program change capture',0x0810341a,bytes.fromhex('c028cdd1b2e7'),bw(0x0810341a,PC['pc_midi_isr'])+bytes.fromhex('00bf'))
 add('PC map main-loop dispatch',0x081269d8,branch(0x081269d8,0x08100730),branch(0x081269d8,PC['pc_main']))
+# S9c: every project load seen at its request and at its done result (the
+# main loop clears the pending-load name before pc_main runs).
+for at in (0x08122e4e,0x08122f3e,0x0812305a,0x08125b96):
+ add('PC map load request '+hex(at),at,branch(at,0x0811e86c),branch(at,PC['pc_load_request']))
+add('PC map load done result',0x08126710,branch(0x08126710,0x0811e910),branch(0x08126710,PC['pc_load_result']))
 add('PC map settings defaults',0x08120aae,branch(0x08120aae,0x0812028e),branch(0x08120aae,PC['pc_settings_defaults']))
-add('PC map settings capacity 68 to 144',0x08120a56,bytes.fromhex('4421'),bytes.fromhex('9021'))
+# Parameter sets (tracks, Main, buses, FX) hold 68 entries; tracks were at
+# 87/88 with the synth. Spectral, as combo: 112 at all 13 sites, so new
+# per-track settings have room.
+add('parameter set capacity 68 to 112',0x081202be,bytes.fromhex('4421'),bytes.fromhex('7021'))
+# The session allocates its sets once at boot, and the copies of them, at
+# these sites (movs rN,#0x44 feeding 0x08120202, which never grows a set).
+for at,reg in ((0x0811e164,0x26),(0x0811e174,0x24),(0x0811e186,0x24),(0x0811e198,0x21),
+               (0x0811e26e,0x26),(0x0811e27e,0x24),(0x0811e290,0x24),(0x0811e2a2,0x21),
+               (0x08126cce,0x27),(0x08126ce2,0x27),(0x08126cf6,0x25),(0x08126d0a,0x21)):
+ add('parameter set capacity 68 to 112 '+hex(at),at,bytes([0x44,reg]),bytes([0x70,reg]))
+add('PC map settings capacity 68 to 160',0x08120a56,bytes.fromhex('4421'),bytes.fromhex('a021'))  # S27: 144 was full with User Settings
 for at,old,new in ((0x08134cce,'43f63410','44f64c00'),(0x08134ce0,'43f63412','44f64e02')):  # 0x295 records (Bank # slots + scene/MIDI tags + DIN Out/Sync + Clock Src)
  add('PC map name table size '+hex(at),at,bytes.fromhex(old),bytes.fromhex(new))
 add('PC map name table bound 0x08134c06',0x08134c06,bytes.fromhex('40f20a23'),bytes.fromhex('40f29423'))
@@ -198,18 +280,87 @@ add('B on Tools (MIDI row) opens the MIDI page, B there goes back',0x081239e0,br
 add('PROJ list marks the loaded project',0x0813dfba,branch(0x0813dfba,0x0810204e),branch(0x0813dfba,PC['pc_list_row']))
 add('New project clears the scenes',0x0813e8a2,branch(0x0813e8a2,0x08122e3c),branch(0x0813e8a2,PC['pc_new_project']))
 add('First project (none on the card) clears the scenes',0x08125cfc,branch(0x08125cfc,0x08122e3c),branch(0x08125cfc,PC['pc_new_project']))
+# S27: the Projects scan notes DEFAULT (the new-project template) and leaves
+# it out of the PROJ list while User Settings "Hide DEFAULT" is On.
+add('Projects scan list clear notes the template',0x0811f726,branch(0x0811f726,0x08101e94),branch(0x0811f726,PC['pc_list_clear']))
+for at in (0x0811f770,0x0811f7be):
+ add('Projects scan list add filters the template '+hex(at),at,branch(at,0x08101e9a),branch(at,PC['pc_list_add']))
 add('Scene page Select button',0x0814ca40,struct.pack('<I',0x0813cfb9),struct.pack('<I',PC['pc_edit_event']|1))
 add('PROJ Save assigns the chosen Bank #',0x0813e4a8,branch(0x0813e4a8,0x081224d4),branch(0x0813e4a8,PC['pc_project_save']))
 add('Cue icons and Scenes feedback before Cobalt flip',0x08137496,branch(0x08137496,0x0810134c),branch(0x08137496,cue4['cue_present']))
 add('Scenes page cell on page 0x19',0x081227f8,branch(0x081227f8,0x0813c384),branch(0x081227f8,PC['pc_projset_post']))
-add('Scenes edit page rows',0x0813d20a,branch(0x0813d20a,0x08121cf4),branch(0x0813d20a,PC['pc_page_rows']))
-add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x08125e04,PC['pc_knob']))
+add('Scenes edit page rows',0x0813d20a,branch(0x0813d20a,0x08121cf4),branch(0x0813d20a,dj4['dj_page_rows']))
+add('Scenes edit page edits',0x08125e04,branch(0x08125e04,0x08124b44),branch(0x08125e04,dj4['dj_knob']))
 add('Tools MIDI row has no value',0x0814ba3c,struct.pack('<I',0x08131211),struct.pack('<I',PC['pc_tools_event']|1))
 add('Row list tap on the MIDI row opens the MIDI page',0x0814cac4,struct.pack('<I',0x0813d89d),struct.pack('<I',PC['pc_list_event']|1))
 add('Scenes project reader',0x08121416,branch(0x08121416,0x081079c0),branch(0x08121416,PC['sc_read']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.2.0',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+
+# Experimental native track-source replacement and parsed MIDI observer.
+scode=(ROOT/'build/synth7.bin').read_bytes()
+ss={f[2]:int(f[0],16) for line in (ROOT/'build/synth7.symbols').read_text().splitlines() if len(f:=line.split())==3}
+if len(scode)>0x18000:raise ValueError('synth code cave too large')
+add('M7 Plaits synth engine',0x080c8000,bytes(len(scode)),scode)
+add('track source synth processing',0x0806b5b4,struct.pack('<I',0x08057209),struct.pack('<I',ss['synth_source_process']|1))
+for at in (0x08050ce2,0x08056e2c):
+ add('synth source constructor '+hex(at),at,branch(at,0x08056d54),branch(at,ss['synth_source_construct']))
+for at,old in ((0x08050cd8,bytes.fromhex('4ff4b560')),(0x08056e22,bytes.fromhex('4ff4b560'))):
+ add('synth source allocation '+hex(at),at,old,bytes.fromhex('40f62020')) # movw r0,#0xa20 (S10: +0x20 for LFO2)
+add('synth source destructor',0x0806b5ac,struct.pack('<I',0x08056d3d),struct.pack('<I',ss['synth_source_destroy']|1))
+add('synth source deleting destructor',0x0806b5b0,struct.pack('<I',0x08056d41),struct.pack('<I',ss['synth_source_delete']|1))
+add('MIDI notes to synth and native mappings',0x0804f5dc,branch(0x0804f5dc,0x0804f0c4),branch(0x0804f5dc,ss['synth_midi_dispatch']))
+# TRACK Synth after Sidechain (0x08123af4/0x08123b00) and Synth B setup (0x08123a12):
+# routed through dj_track_other / dj_track_press / dj_b_press, which call
+# synth_track_button_action / synth_track_b_action outside the DJ view.
+# Track settings preallocation (S7b's 88 at 0x08126cce / 0x0811e164 /
+# 0x0811e26e): replaced by the 112-entry parameter set capacity at all 13 sites.
+# S8: filter-mode value text (Cutoff Hz / DJ / signed Env) after the native
+# knob formatter, at all six of its call sites.
+for at in (0x08127d06,0x08127de6,0x08127e8c,0x081325de,0x08132604,0x0813262a):
+ add('insert filter knob text '+hex(at),at,branch(at,0x081278b0),branch(at,symbols(4)['insert_knob_text']))
+add('track-aware native settings reset',0x081202c0,branch(0x081202c0,0x08120202),branch(0x081202c0,symbols(4)['synth_settings_reset_shim']))
+add('Sidechain B routing with synth menu return',0x08123a98,branch(0x08123a98,0x08122508),branch(0x08123a98,symbols(4)['synth_track_b_action']))
+add('Sidechain native list synth contents',0x08128e8c,branch(0x08128e8c,0x0812894c),branch(0x08128e8c,symbols(4)['synth_menu_populate']))
+add('Sidechain synth menu local edits',0x0814b4ac,struct.pack('<I',0x081290f9),struct.pack('<I',symbols(4)['synth_menu_local']|1))
+add('Sidechain synth menu title',0x08128fbe,branch(0x08128fbe,0x08136aa4),branch(0x08128fbe,symbols(4)['synth_menu_title']))
+
+# S14 experiment: every interface -> audio core value send (bl 0x08108784)
+# goes through synth_send, which gives a synth track with Input None a
+# stand-in input. Sites are found in the stock M4 code.
+def bl_sites(target,lo,hi):
+ out=[]
+ for at in range(lo,hi,2):
+  if stock[at-0x08040000:at-0x08040000+4]==branch(at,target):out.append(at)
+ return out
+send_sites=bl_sites(0x08108784,0x08100000,0x0814a000)
+if len(send_sites)<50:raise ValueError('expected the interface value-send call sites')
+for at in send_sites:
+ add('synth input stand-in send '+hex(at),at,branch(at,0x08108784),branch(at,symbols(4)['synth_send']))
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.1',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
+manifest['symbols']['synth7']=ss
 manifest['symbols']['pcm4']=PC
+manifest['synth_experiment']=dict(tools='Cblt 1.3d',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
+baseline=json.loads((ROOT/'tests/references/cobalt-1.2.0-manifest.json').read_text())
+if baseline['patched_sha256']!='c28981e5bf1b511a6be70de3293d11f81533e6606fb9d5492f90c7d0a1ad4c88':raise ValueError('Unexpected Cobalt release baseline')
+# Spectral F3: the delay constructor also allocates the shifter bank, so the
+# delay code region is no longer the release's.
+for name in ('M7 additional code','M7 compressor telemetry code',
+             'in-place bank2 PCM24 burst recording loop','in-place bank2 PCM24 burst mono playback loop','in-place bank2 PCM24 burst stereo playback loop'):
+ before=next(p for p in baseline['patches'] if p['name']==name)
+ after=next(p for p in patches if p['name']==name)
+ if before!=after:raise ValueError('Insert experiment changed unrelated release payload '+name)
+parent=json.loads((ROOT/'tests/references/cobalt-inserts-I4-manifest.json').read_text())
+if parent['patched_sha256']!='341d1039d9e18360a30e3c32ef71cdb26e6b991429d0d887ceb0b37b32d9afff':raise ValueError('Unexpected I4 parent')
+# Spectral F3: the delay constructor also allocates the shifter bank, so the
+# delay code region is no longer the release's.
+for name in ('M7 additional code','M7 compressor telemetry code',
+             'in-place bank2 PCM24 burst recording loop','in-place bank2 PCM24 burst mono playback loop','in-place bank2 PCM24 burst stereo playback loop'):
+ if next(p for p in parent['patches'] if p['name']==name)!=next(p for p in patches if p['name']==name):raise ValueError('Insert experiment changed unrelated I4 audio: '+name)
+manifest['insert_experiment']=dict(tools='Cblt 1.3d',baseline_version='1.2.0',baseline_sha256=baseline['patched_sha256'],
+    parameter_ids=list(range(0x1ba,0x1bf))+[0x1d5,0x1de],native_object_bytes=0x1cc,insert_state_offset=0x1d0,
+    insert_state_bytes=112,object_allocation_bytes=0x240,all_13_eq_objects_extra_bytes=13*(0x240-0x1cc),
+    selector_raw_units=400,selector_max_step_per_event=1,
+    algorithm='CLIP / FOLD / WRAP drives, LP / BP / HP / DJ filter with envelope follower, On/Off, smoothed transitions at 48kHz',hardware_tested=False)
 fields=[
  dict(key='accent',label='Selection accent',slots=[4,32],default='#9455fa'),
  dict(key='background',label='Base background',slots=[2],default='#141414'),
@@ -312,8 +463,12 @@ manifest['accent']=dict(default='#9455fa',offsets=fields[0]['offsets'])
 manifest['symbols']['gr7']=gr_symbols
 manifest['symbols']['delay7']=ds
 manifest['symbols']['gate7']=ngs
+manifest['symbols']['synth7']=ss
+manifest['synth_experiment']=dict(tools='Cblt 1.3d',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
 manifest['symbols']['cue7']=cues
 manifest['symbols']['cue4']=cue4
+manifest['symbols']['dj7']=djs
+manifest['symbols']['dj4']=dj4
 manifest['meters_only_sha256']='76fb996aa76ecfa0d8234aca1210bf360e234a49653b8fe213c97f131deaa29f'
 manifest['cpu_only_sha256']='bc86a68620be4916c64220acb51bd04a6b2bb5c2d53517614588f58cc9b0fb9a'
 (ROOT/'patch_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
@@ -334,5 +489,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt v1.2.0 patcher. Expected output SHA256:',manifest['patched_sha256'])
-print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code')))
+print('Built Cobalt 1.3.0-dev.1. Expected output SHA256:',manifest['patched_sha256'])
+print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code') or p['name']=='M7 Plaits synth engine'))

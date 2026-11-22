@@ -13,7 +13,7 @@ check(cs(u32(u,a+4))==b'Gate:' and cs(u32(u,a+24))==b'ngthreshold','Gate label a
 for ch in range(12):
  u.mem_write(TMP,b'\1');SET=APP+0xc08+ch*0x30;call(u,0x81202b8,SET,TMP)
  n,cap=struct.unpack('<HH',u.mem_read(SET+10,4))
- check(n==52 and cap==68 and call(u,0x8120234,SET,0x1ae)==((-96000)&0xffffffff),'track'+str(ch+1)+' defaults to Off in existing capacity')
+ check(n==94 and cap==112 and call(u,0x8120234,SET,0x1ae)==((-96000)&0xffffffff),'track'+str(ch+1)+' defaults to Off in existing capacity (spectral: capacity 112)')
 w32(u,APP+0xe78+4,0x24058000);u.mem_write(APP+0xe78+10,struct.pack('<HH',1,68));u.mem_write(0x24058000,struct.pack('<H2xi',0x18c,0))
 # Full native panel allocation/tree; no widget or drawing math is mocked.
 call(u,S['gate_mix_construct'],P)
@@ -74,7 +74,7 @@ v=struct.unpack('<i',u.mem_read(W+0x98,4))[0]
 check(-60000<v<=-58000 and any(struct.unpack_from('<I',m,12)[0]==0x1ae for m in messages),'native encoder emits a Gate edit with native fine dB travel over 100 encoder units')
 # Full Track page: only the file-name lookup boundary is substituted.
 T=0x24030000;INFO=0x24008010
-call(u,0x81323b8,T);call(u,0x8132ed4,T)
+call(u,S['insert_track_construct'],T);call(u,0x8132ed4,T)
 stub(u,0x8121f4c,lambda u:u.reg_write(UC_ARM_REG_R0,0))
 for quad in [0,1]:
  call(u,0x8120264,APP+0xe78,0x18c,1-quad)

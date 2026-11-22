@@ -29,15 +29,26 @@ def definitions(image,size):
  return u,bytes(u.mem_read(0xc0010000,size))
 a,old=definitions(stock,0x3934);u,new=definitions(patched,0x484c)
 check(patched[0x08134cce-0x08040000:][:4]==bytes.fromhex('44f64c00') and patched[0x08134ce0-0x08040000:][:4]==bytes.fromhex('44f64e02'),'definition table: allocation (r0) 0x484c = 0x295 records, clear length (r2) 0x484e')
-cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba),0x178}
+cobalt={0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba)}
+# S9: the insert (0x1ba-0x1be, 0x1d5) and synth (0x1bf-0x1d4) parameters are
+# Cobalt definitions too; the name table still ends at 0x294 for the PC map.
+cobalt|={*range(0x1ba,0x1d6),*range(0x1d7,0x1df)} # S10: LFO2; S18: Reso; F6: Chord
+cobalt|={0x178} # v1.2.0: Phones Src AUTO list
+cobalt|={*range(0x18d,0x19c)} # DJ EQ (PR 2, combo ids)
+cobalt|={0x110,0x111} # Out 2 clock: Clk Out L/R
+cobalt|={0x1e8,0x1e9,0x1ea} # S24: Track Knob 8; S25: User Settings row; S27: Hide _DEFAULT
 check(new[0x178*28:0x179*28]==old[0x178*28:0x178*28+8]+struct.pack('<II',M['symbols']['cue7']['cue_phones_names'],3)+old[0x178*28+16:0x179*28],'Phones Src definition: only the AUTO list and count 3 change')
+C7=M['symbols']['cue7']
+for i,label,key in [(0x110,'clk_label_l','clk_key_l'),(0x111,'clk_label_r','clk_key_r')]:
+ o=old[i*28:(i+1)*28];n=new[i*28:(i+1)*28]
+ check(n==o[:4]+struct.pack('<III',C7[label],C7['clk_rate_names'],7)+o[16:24]+struct.pack('<I',C7[key]),'Clk Out definition %#x: only label, list, count 7 and key change'%i)
 check(all(old[i*28:(i+1)*28]==new[i*28:(i+1)*28] for i in range(0x20b) if i not in cobalt),'stock parameter definitions 0..0x20a are preserved')
 recs=[struct.unpack('<HB',new[i*28:i*28+3]) for i in range(TAG0,TAG0+SLOTS)]
 check(all(r==(TAG0+i,1) for i,r in enumerate(recs)),'128 PC slot records registered at 0x20b..0x28a')
 check([string(u,u32(u,0xc0010000+(TAG0+i)*28+24)) for i in (0,5,127)]==[b'pcmap0',b'pcmap5',b'pcmap127'],'slot keys pcmap0/pcmap5/pcmap127')
 check(string(u,call(u,0x8136134,TAG0))==b'pcmap0' and string(u,call(u,0x8136134,0x28a))==b'pcmap127','tag->name resolves the first and last slot')
 check(string(u,call(u,0x8136134,0x28b))==b'bankcc' and struct.unpack('<H',new[0x28b*28:0x28b*28+2])[0]==0x28b,'Bank CC setting registered at 0x28b (bankcc)')
-keys={0x28b:b'bankcc',0x28c:b'scenesel',0x28d:b'scenesave',0x28e:b'bankassign',0x28f:b'scenech',0x290:b'bankch',0x291:b'midimenu',0x292:b'dinout',0x293:b'ccsync',0x294:b'clksrc'}
+keys={0x28b:b'bankcc',0x28c:b'scenesel',0x28d:b'scenesave',0x28e:b'bankassign',0x28f:b'scenech',0x290:b'dimnoinput',0x291:b'midimenu',0x292:b'dinout',0x293:b'ccsync',0x294:b'clksrc'}
 check(all(string(u,call(u,0x8136134,i))==k for i,k in keys.items()),'scene/MIDI tags registered at 0x28b..0x294')
 check(call(u,0x8136134,0x295)==0,'tag->name still refuses ids past the table')
 u.mem_write(0x24010000,b'bankcc\0');check(call(u,0x8136164,0x24010000)==0x28b,'name->tag finds bankcc')
@@ -53,9 +64,9 @@ def defaults(image):
  n,cap=struct.unpack('<HH',u.mem_read(SETTINGS+10,4))
  return u,[struct.unpack('<H2xi',u.mem_read(u32(u,SETTINGS+4)+8*i,8)) for i in range(n)],cap
 _,sold,scap=defaults(stock);u,snew,cap=defaults(patched)
-check(scap==0x44 and cap==0x90,'settings capacity 68 -> 144')
+check(scap==0x44 and cap==0xa0,'settings capacity 68 -> 160 (S27)')
 check(snew[:7]==sold and len(sold)==7,'stock settings defaults unchanged and first')
-check(snew[7:]==[(TAG0+i,0) for i in range(SLOTS)]+[(0x28b,0),(0x28f,0),(0x290,0),(0x291,0),(0x292,0),(0x293,1),(0x294,0)] and len(snew)<=cap,'Bank # slots, Bank CC (MSB), Scene/Bank channels (All), the MIDI row, MIDI Out (Default), Map CC Sync (USB) and Clock Src (MIDI In) appended within capacity')
+check(snew[7:]==[(TAG0+i,0) for i in range(SLOTS)]+[(0x28b,0),(0x28f,0),(0x290,0),(0x291,0),(0x292,0),(0x293,1),(0x294,0),(0x1e8,0),(0x1e9,0),(0x1ea,0)] and len(snew)<=cap,'Bank # slots, Bank CC (MSB), Scene/Bank channels (All), the MIDI row, MIDI Out (Default), Map CC Sync (USB), Clock Src (MIDI In) and Track Knob 8 (Gate, S24) appended within capacity')
 
 # settings.tml writer/reader loops with the XML object boundary stubbed.
 u=heap_machine();call(u,0x8134cb8,0);call(u,0x8120a52,SETTINGS)
@@ -68,7 +79,7 @@ stub(u,0x81074dc,key);stub(u,0x8106dc6,lambda u:saved.update({last[0]:u.reg_read
 call(u,0x8120264,SETTINGS,TAG0+4,0xdeadbeef);call(u,0x8120264,SETTINGS,TAG0+127,0x1234)
 call(u,0x8137698,0x24010000,0,0,SETTINGS,end=0x813774e)
 check(saved.get('pcmap4')==0xdeadbeef and saved.get('pcmap127')==0x1234 and saved.get('pcmap0')==0,'settings writer emits every PC slot attribute')
-check(len([k for k in saved if k.startswith('pcmap')])==SLOTS and len(saved)==7+SLOTS+7 and saved.get('bankcc')==0 and saved.get('scenech')==0 and saved.get('midimenu')==0 and saved.get('dinout')==0 and saved.get('ccsync')==1 and saved.get('clksrc')==0,'writer emits 7 stock + 128 slot + 7 MIDI attributes')
+check(len([k for k in saved if k.startswith('pcmap')])==SLOTS and len(saved)==7+SLOTS+10 and saved.get('hidedefault')==0 and saved.get('usermenu')==0 and saved.get('trkknob8')==0 and saved.get('dimnoinput')==0 and saved.get('bankcc')==0 and saved.get('scenech')==0 and saved.get('midimenu')==0 and saved.get('dinout')==0 and saved.get('ccsync')==1 and saved.get('clksrc')==0,'writer emits 7 stock + 128 slot + 7 MIDI attributes + Track Knob 8 (S24)')
 stub(u,0x8137be8,lambda u:u.reg_write(UC_ARM_REG_R0,1))
 def find(u):last[0]=string(u,u.reg_read(UC_ARM_REG_R1)).decode();u.reg_write(UC_ARM_REG_R0,XML if last[0] in saved else 0)
 stub(u,0x810747c,find)
@@ -242,8 +253,8 @@ check(after(0x10a)[0]==2 and after(0x11e)[0]==2,'keyboard/keypad overlay pages f
 
 # Tools panel: PC slots never become rows.
 rows=[];stub(u,0x8138546,lambda u:rows.append(u.reg_read(UC_ARM_REG_R1)))
-for tag in (0x80,0x81,0x117,TAG0,TAG0+127,0x28b,0x28f,0x290,0x291,0x292,0x293,0x294,0x204):call(u,PC['pc_tools_append'],0x24070000,tag,0)
-check(rows==[0x80,0x81,0x291,0x204],'Tools rows: Bank # slots, MIDI settings and MIDIStopRcv hidden; the MIDI row shown')
+for tag in (0x80,0x81,0x117,TAG0,TAG0+127,0x28b,0x28f,0x290,0x291,0x292,0x293,0x294,0x1e8,0x1e9,0x204):call(u,PC['pc_tools_append'],0x24070000,tag,0)
+check(rows==[0x80,0x81,0x291,0x1e9,0x204],'Tools rows: Bank # slots, MIDI and User settings and MIDIStopRcv hidden; the MIDI and User Settings rows shown (S25)')
 
 
 # ---------------------------------------------------------------- Scenes
@@ -284,16 +295,18 @@ def tget(u,cell,id):return call(u,0x8120234,taddr(cell),id)&0xffffffff
 def tset(u,cell,id,v):call(u,0x8120264,taddr(cell),id,v&0xffffffff)
 u=scene_machine()
 check(u32(u,0x38800fd0)==0x53434e31 and SB(u)>=0xc0100000,'scene bank allocated once at boot (parameter-definitions hook)')
-TRACK={0x4,0x3,0x63,0xda,0xdb,0x15d,0x15e,0x15f,0x160,0x161,0x163,0x1ae}|set(range(0x119,0x130))
-MASTER={0x4,0x160,0xb5,0x43,0x1b6,0x1b7,0x1b8}|set(range(0x130,0x13c))|set(range(0x119,0x130))
+TRACK={0x4,0x3,0x63,0xda,0xdb,0x15d,0x15e,0x15f,0x160,0x161,0x163,0x1ae}|set(range(0x119,0x130))|set(range(0x18d,0x193))  # + DJ EQ
+INSERT={0x1ba,0x1bb,0x1bc,0x1bd,0x1be,0x1d5,0x1de} # F6: insert type, knobs, On, chord
+TRACK|=INSERT
+MASTER={0x4,0x160,0xb5,0x43,0x1b6,0x1b7,0x1b8}|set(range(0x130,0x13c))|set(range(0x119,0x130))|set(range(0x193,0x197))  # + DJ EQ settings
 
 # Scene page actions: A on PROJ opens it; A on the page acts on the selected row.
 B0=SB(u)
-FIELDS=0x20+640*4+16*640*4+64*8+64*2
+FIELDS=0x20+768*4+16*768*4+64*8+64*2
 def field(i):return SB(u)+FIELDS+4*i
 def used(u):return u32(u,SB(u)+8)
 def current(u):return u32(u,SB(u)+12)
-def val(u,k,j):return u32(u,SB(u)+0x20+640*4+(k*640+j)*4)
+def val(u,k,j):return u32(u,SB(u)+0x20+768*4+(k*768+j)*4)
 def page(p):u.mem_write(SESSION+0x739a,bytes([p]))
 def press_a():call(u,PC['pc_button_a'],SESSION,0)
 def select(id=0x2a0):u.mem_write(0x24011400,struct.pack('<HHIHHIII',2,0,0x8148664,0,0,id,0,0));return call(u,PC['pc_edit_event'],EDIT,0x24011400)
@@ -303,10 +316,13 @@ def act(row,value=None):
  select()
 def save(n):act(1,n)
 tset(u,0,0x4,-6000);tset(u,3,0x160,1);tset(u,0x0c,0x132,-18000);tset(u,0x14,0x33,250)
+tset(u,5,0x1ba,13);tset(u,5,0x1bb,264);tset(u,5,0x1bc,900);tset(u,5,0x1de,3)
 save(1)
 it=items(u)
 check(used(u)==1 and current(u)==1 and len(it)>400,'Save Scene 1 builds the template (%d values) and snapshots it'%len(it))
-check(all(id in TRACK for c,id in it if c<12),'tracks: only level/pregain/pan/sends/mute/solo/comp/EQ/gate')
+check(all(id in TRACK for c,id in it if c<12),'tracks: only level/pregain/pan/sends/mute/solo/comp/EQ/gate/insert')
+check(all((c,id) in it for c in range(12) for id in INSERT),'F6: every track captures its insert (type, Drive/Tone/Mix/Output, On, chord)')
+print('INFO scene values',len(it),'of 768')
 check(not any(id in (0x112,0x162,0x16d,0x16e) or 0x1f<=id<=0x2b for c,id in it if c<12),'tracks: no source, rec-enable, play, asset or ducking')
 check(all(id in MASTER for c,id in it if c==0x0c),'master: compressor/EQ/level/mute/saturation only (no routing/USB)')
 check(all(id in (0x4,0x160) for c,id in it if 0x0d<=c<=0x12),'aux buses: level and mute only')
@@ -317,7 +333,7 @@ check(fx2 and fx2[0]==0x155,'FX2: reverb style (0x155) first')
 check([id for c,id in it if c==0x16]==[0x85],'project settings (cell 0x16): BPM only, no metronome/transport/clock')
 check(not any(c==0x13 or c>0x16 for c,_ in it),'no other cells')
 j=it.index((0,0x4));check(val(u,0,j)==(-6000)&0xffffffff,'snapshot holds the live track 1 level')
-tset(u,0,0x4,-1000);tset(u,3,0x160,0);tset(u,0x0c,0x132,-6000);tset(u,0x14,0x33,500);tset(u,0x14,0x1a0,2);tset(u,0x16,0x85,90)
+tset(u,0,0x4,-1000);tset(u,3,0x160,0);tset(u,5,0x1ba,9);tset(u,5,0x1bb,750);tset(u,5,0x1de,0);tset(u,0x0c,0x132,-6000);tset(u,0x14,0x33,500);tset(u,0x14,0x1a0,2);tset(u,0x16,0x85,90)
 save(2)
 check(used(u)==3 and current(u)==2,'Save Scene 2 (scene page row 2 + Select)')
 
@@ -350,6 +366,7 @@ check(sum(passes)==len(calls) and max(passes)<=24 and len(passes)>1,'Scene 1 rec
 check(set((c,id) for _,c,id,_ in calls)>={(0,0x4),(3,0x160),(0x0c,0x132),(0x14,0x33),(0x14,0x1a0)} and all(s==SESSION for s,_,_,_ in calls),'recall sends only differing values, via SessionMgr')
 fxcalls=[id for _,c,id,_ in calls if c==0x14]
 check(fxcalls.index(0x1a0)<fxcalls.index(0x33),'FX1 mode replayed before its parameters')
+check(set((c,id) for _,c,id,_ in calls)>={(5,0x1ba),(5,0x1bb),(5,0x1de)} and tget(u,5,0x1ba)==13 and tget(u,5,0x1bb)==264 and tget(u,5,0x1bc)==900 and tget(u,5,0x1de)==3,'F6: recall restores the insert (CHRD, Pitch, Decay, chord) through the knob path')
 check(tget(u,0,0x4)==(-6000)&0xffffffff and tget(u,3,0x160)==1 and tget(u,0x0c,0x132)==(-18000)&0xffffffff and tget(u,0x14,0x33)==250 and tget(u,0x16,0x85)==120,'live state equals scene 1 after recall (BPM back to 120)')
 check(current(u)==1 and all(tget(u,c,0x63)==val(u,0,items(u).index((c,0x63))) for c in range(12)),'current scene = 1; every captured value restored')
 del knob[:];check(mainpass()==0 and mainpass()==0,'nothing left to replay')
@@ -412,9 +429,9 @@ check(scenes!=0 and call(u,0x8106ae8,scenes,s(b'scene'))!=0,'<scenes><scene> wri
 freed=[]
 stub(u,0x81079c0,lambda u:freed.append(u.reg_read(UC_ARM_REG_R0)))
 for k in (0,1):
- for j in range(len(saved1)):w32(u,SB(u)+0x20+640*4+(k*640+j)*4,0)
+ for j in range(len(saved1)):w32(u,SB(u)+0x20+768*4+(k*768+j)*4,0)
 w32(u,SB(u)+8,0);w32(u,SB(u)+12,0);w32(u,SB(u)+24,0x103)
-call(u,PC['sc_read'],DOC)
+call(u,PC['sc_read'],DOC,count=30000000) # 664 values x 22 cells per scene (project load only)
 check(freed==[DOC],'reader hook frees the document (stock behaviour)')
 check(used(u)==3 and current(u)==1,'scenes 1-2 and the current scene restored from the project XML')
 check([val(u,0,j) for j in range(len(saved1))]==saved1 and [val(u,1,j) for j in range(len(saved2))]==saved2,'all %d values of both scenes round-trip exactly'%len(saved1))
@@ -455,6 +472,9 @@ check(button==[('label','Select'),('rect',(226,182,93,38))] and u32(u,EDIT+0x888
 call(u,0x8120264,SETTINGS,0x28b,1);call(u,0x8120264,SETTINGS,0x28f,3)
 check(page_rows(0x1b)[2]==[(0x28b,1),(0x28f,3),(0x117,1),(0x292,0),(0x293,1),(0x294,0)],'MIDI page rows: Bank CC, PC Ch, MIDIStopRcv (stock default on), MIDI Out, Map CC Sync (USB), Clock Src')
 call(u,0x8120264,SETTINGS,0x28b,0);call(u,0x8120264,SETTINGS,0x28f,0)
+call(u,0x8120264,SETTINGS,0x1e8,1)
+check(page_rows(0x1c)[2]==[(0x290,0),(0x1e8,1),(0x1ea,0)],'User Settings page rows: Dim No Input, Track Knob 8, Hide _DEFAULT (S27)')
+call(u,0x8120264,SETTINGS,0x1e8,0)
 built=[];stub(u,0x8121cf4,lambda u:(built.append(struct.unpack('<H',u.mem_read(u.reg_read(UC_ARM_REG_R1),2))[0]),u.reg_write(UC_ARM_REG_R0,7)))
 del button[:]
 check(page_rows(0x16)[0]==7 and built==[0x16],'other cells use the stock builder')
@@ -467,20 +487,25 @@ edit(0x17,0x28c,5);edit(0x17,0x28d,40);edit(0x17,0x28e,-3)
 check([u32(u,field(i)) for i in range(3)]==[5,16,0] and knobs==[],'scene page edits only change the selections (clamped 1-16 / 0-128), nothing reaches the engine')
 edit(0x1b,0x28f,4)
 check(knobs==[(0x18,0x28f,4)] and saves,'MIDI page edits go to the settings (cell 0x18) and save settings.tml')
+del knobs[:],saves[:];edit(0x1c,0x1e8,1)
+check(knobs==[(0x18,0x1e8,1)] and saves,'User Settings page edits go to the settings (cell 0x18) and save settings.tml')
 del knobs[:];edit(3,0x4,-100)
 check(knobs==[(3,0x4,(-100)&0xffffffff)],'other edits pass through to the knob path')
 toolsev=[];stub(u,0x8131210,lambda u:(toolsev.append(1),u.reg_write(UC_ARM_REG_R0,5)))
 def tools(ev,id):u.mem_write(0x24011000,struct.pack('<HHIHHIII',ev,0,0x8148664,0,0,1,id,0));return call(u,PC['pc_tools_event'],0x24030000,0x24011000)
 del posted[:]
 check(tools(0x3d,0x291)==0 and not posted and not toolsev,'turning the Tools "MIDI:" row does nothing (no value, no page)')
+check(tools(0x3c,0x1e9)==0 and not posted and not toolsev,'turning the Tools "User Settings" row does nothing')
 # A tap on a row: list widget event 0x145 with the row index.
 LW=0xc1100000;taps=[]
 stub(u,0x813d89c,lambda u:(taps.append(u.reg_read(UC_ARM_REG_R0)),u.reg_write(UC_ARM_REG_R0,0)))
-w32(u,LW+0x99e8,3)
-for i,id in enumerate((0x80,0x81,0x291)):u.mem_write(LW+0xe8+i*0x330+0x32c,struct.pack('<H',id))
+w32(u,LW+0x99e8,4)
+for i,id in enumerate((0x80,0x81,0x291,0x1e9)):u.mem_write(LW+0xe8+i*0x330+0x32c,struct.pack('<H',id))
 def tap(ev,row):u.mem_write(0x24011000,struct.pack('<HHIHHIII',ev,0,0x8148664,0,0,row,0,0));return call(u,PC['pc_list_event'],LW,0x24011000)
 del posted[:]
 check(tap(0x145,2)==0 and taps==[LW] and posted and posted[-1][0]==0xab and posted[-1][3]==0x1b,'tapping the MIDI row: stock selection, then the MIDI page (cell 0x1b) opens')
+del posted[:]
+del posted[:];check(tap(0x145,3)==0 and posted and posted[-1][0]==0xab and posted[-1][3]==0x1c,'tapping the User Settings row: the User Settings page (cell 0x1c) opens')
 del posted[:]
 check(tap(0x145,0)==0 and not posted,'tapping another row (Brightness) only selects it')
 check(tap(0x145,5)==0 and not posted and tap(0x144,2)==0 and not posted,'out-of-range rows and other list events: stock only')
@@ -534,8 +559,8 @@ call(u,0x8120264,SETTINGS,TAG0+0,0)
 w32(u,field(3),0);w32(u,field(2),0)
 # B on Tools opens the MIDI page; B elsewhere is stock.
 bcalls=[];stub(u,0x8123818,lambda u:bcalls.append(u.reg_read(UC_ARM_REG_R1)))
-TL=APP+0x119a88+0x590;w32(u,TL+0x99e8,3)
-for i,id in enumerate((0x80,0x81,0x291)):u.mem_write(TL+0xe8+i*0x330+0x32c,struct.pack('<H',id))
+TL=APP+0x119a88+0x590;w32(u,TL+0x99e8,4)
+for i,id in enumerate((0x80,0x81,0x291,0x1e9)):u.mem_write(TL+0xe8+i*0x330+0x32c,struct.pack('<H',id))
 def press_b():del posted[:];call(u,PC['pc_button_b'],SESSION,0);return list(posted)
 w32(u,APP+0x2b4,APP+0x119a88);w32(u,TL+0x99ec,0)
 check(press_b()==[] and bcalls==[0],'B on Tools with Brightness selected: stock only')
@@ -543,8 +568,12 @@ w32(u,TL+0x99ec,2);p=press_b()
 check(len(bcalls)==2 and p and p[-1][0]==0xab and p[-1][3]==0x1b,'B on Tools with "MIDI Settings" selected: the MIDI page (cell 0x1b) opens')
 w32(u,APP+0x2b4,EDIT);u.mem_write(EDIT+0xa3e0,struct.pack('<H',0x1b));p=press_b()
 check(len(bcalls)==3 and p and p[-1][0]==0xcb,'B on the MIDI page: back to Tools (UI event 0xcb)')
+w32(u,APP+0x2b4,APP+0x119a88);w32(u,TL+0x99ec,3);p=press_b()
+check(len(bcalls)==4 and p and p[-1][0]==0xab and p[-1][3]==0x1c,'B on Tools with "User Settings" selected: the User Settings page (cell 0x1c) opens')
+w32(u,APP+0x2b4,EDIT);u.mem_write(EDIT+0xa3e0,struct.pack('<H',0x1c));p=press_b()
+check(len(bcalls)==5 and p and p[-1][0]==0xcb,'B on the User Settings page: back to Tools')
 u.mem_write(EDIT+0xa3e0,struct.pack('<H',0x16))
-check(press_b()==[] and len(bcalls)==4,'B on other edit pages: stock only')
+check(press_b()==[] and len(bcalls)==6,'B on other edit pages: stock only')
 # PROJ list: the loaded project's row gets "* ".
 LB=0x24013000
 def row(i):u.mem_write(LB,bytes(64));r=call(u,PC['pc_list_row'],0x300172fc,i,LB);return r,string(u,LB)
@@ -641,4 +670,87 @@ w32(u,BROWSER+0x614,1);scroll(10);scroll(1600);page(8)
 check(scroll(10)==([(MID,LONG)],1),'leaving the list puts the start back')
 check(scroll(5000)==([],0),'and nothing more off the list')
 
+# S9b diagnostic band: each Bank Select's outcome and every load's duration.
+D=lambda:(u32(u,STATE+8)&0xff,(u32(u,STATE+8)>>8)&0xff,u32(u,STATE+12))
+names[:]=['Mine','Other'];curname[0]='';u.mem_write(LOADBUF,b'\0')
+for i in range(SLOTS):call(u,0x8120264,SETTINGS,TAG0+i,0)
+call(u,0x8120264,SETTINGS,TAG0+1,fnv('Mine'));call(u,0x8120264,SETTINGS,TAG0+2,fnv('Other'))
+main(dt=1000);main(dt=1000)
+main(0x1002,dt=10);main(dt=400)
+check(D()[:2]==(1,3) and TOAST()>>8!=10,'diag: "BANK 3: LOADING" recorded when the load is posted, no band toast (removed in 1.3 dev)')
+u.mem_write(LOADBUF,b'Busy\0');main(dt=20);main(0x1001,dt=10);main(dt=2480);main(0x1001,dt=10)
+check(D()==(3,2,25),'diag: "BANK 2: BUSY 2.5 S" while a load runs '+str(D()))
+u.mem_write(LOADBUF,b'\0');main(dt=500)
+check(D()==(9,0,30),'diag: "LOAD DONE 3.0 S" when the load ends '+str(D()))
+main(dt=400);main(0x1001,dt=10);main(dt=310);main(0x1002,dt=1000)
+check(D()==(4,3,10),'diag: "BANK 3: WAIT 1.0 S" after a post, before the load shows '+str(D()))
+complete();main(dt=400)
+curname[0]='Other';main(0x1002,dt=10)
+check(D()[:2]==(5,3),'diag: "BANK 3: CURRENT"')
+curname[0]='';main(0x1003,dt=500)
+check(D()[:2]==(6,4),'diag: "BANK 4: NO PROJECT" for an unassigned Bank #')
+u.mem_write(SESSION+0x73d7,b'\x01');main(0x1002,dt=500);u.mem_write(SESSION+0x73d7,b'\x00')
+check(D()[:2]==(2,3),'diag: "BANK 3: RECORDING"')
+main(0x1001,dt=10);u.mem_write(LOADBUF,b'Manual\0');main(dt=400)
+check(D()[:2]==(7,2),'diag: "BANK 2: DROPPED" when a load starts during the settle')
+u.mem_write(LOADBUF,b'\0');main(dt=500);main(dt=400)
+call(u,0x8120264,SETTINGS,TAG0+5,fnv('ghost'));main(0x1005,dt=10);main(dt=400)
+check(D()[:2]==(8,6),'diag: "BANK 6: NOT FOUND" when the Bank # names a project not on the card')
+call(u,0x8120264,SETTINGS,TAG0+5,0)
+w32(u,STATE+28,clock[0]+50000);u.mem_write(LOADBUF,b'Boot\0');main(dt=20);u.mem_write(LOADBUF,b'\0');main(dt=1200)
+check(D()==(9,0,12),'diag: a stale load start from before a reset is not used '+str(D()))
+
+
+# S9c: every load is seen at its request (0x0811e86c) and at its done result
+# (0x0812670a, after GetResult 0x0811e3e4 cleared the pending name), so a load
+# that finished between two main-loop passes no longer leaves the Bank Select
+# sequence waiting for its 15 s timeout. Real stock request and GetResult.
+def bl_target(at):
+ o=at-0x08040000;h1,h2=struct.unpack_from('<HH',patched,o);S=(h1>>10)&1;J1=(h2>>13)&1;J2=(h2>>11)&1
+ off=(S<<24)|((1-(J1^S))<<23)|((1-(J2^S))<<22)|((h1&0x3ff)<<12)|((h2&0x7ff)<<1)
+ return at+4+(off-(1<<25) if S else off)
+SITES=(0x08122e4e,0x08122f3e,0x0812305a,0x08125b96)
+check(all(bl_target(a)==PC['pc_load_request'] for a in SITES) and bl_target(0x08126710)==PC['pc_load_result'],'the four load-request calls and the load-done result call reach the PC map')
+PM=0x30016fd0;CUR=0x24012400
+# PresetMgr as constructed: its Strings own 256-byte buffers; rings empty.
+u.mem_write(PM,bytes(0x390));w32(u,PM+0x37c,LOADBUF);w32(u,PM+0x380,CUR);u.mem_write(CUR,bytes(256))
+SBUF=0x2407a000;u.mem_write(SBUF,bytes(0x100*34))
+for i,o in enumerate([8,12]+[0x28+j*16+k for j in range(16) for k in (0,4)]):w32(u,PM+o,SBUF+i*0x100)
+stub(u,0x810a458,lambda u:None);stub(u,0x810311c,lambda u:None)
+applied=[];stub(u,0x811e910,lambda u:applied.append(u.reg_read(UC_ARM_REG_R1)))
+NAMEARG=0x24012600
+def request(name):u.mem_write(NAMEARG,name.encode()+b'\0');call(u,PC['pc_load_request'],PM,NAMEARG)
+def finish(hook=True):
+ # PresetMgr's load-done result 3 (success), drained by the stock GetResult.
+ wi=u32(u,PM+0x2ac);e=PM+0x128+(wi&15)*24;u.mem_write(e,bytes(24));u.mem_write(e,b'\x03');w32(u,e+0x10,1);w32(u,PM+0x2ac,wi+1)
+ out=0x24012700;r=call(u,0x811e3e4,PM,out)
+ if hook:call(u,PC['pc_load_result'],PM,SESSION+0xc08)
+ return r
+main(dt=16000);main(dt=400)
+names[:]=['Mine','Other'];curname[0]=''
+main(0x1002,dt=10);main(dt=400);t0=clock[0]
+check(D()[:2]==(1,3) and phase()==2,'Bank 3 posted')
+request('Other')
+check(string(u,LOADBUF)==b'Other' and u32(u,STATE+28)==t0+1,'stock load request sets the pending name; its start is recorded at the request')
+clock[0]+=300;w32(u,NOW,clock[0]);finish(hook=False)
+check(string(u,LOADBUF)==b'' and string(u,CUR)==b'Other','GetResult clears the pending name and sets the current project, before pc_main runs')
+main(dt=10);curname[0]='Other';main(0x1001,dt=1000)
+check(D()==(4,2,13) and phase()==2,'without the done hook (S9b): the next Bank Select is "BANK 2: WAIT 1.3 S", as on hardware '+str(D()))
+main(dt=14000);check(phase()==0,'S9b: only the 15 s timeout ended that wait')
+w32(u,STATE+28,0);curname[0]=''
+main(0x1002,dt=10);main(dt=400);t0=clock[0];request('Other')
+clock[0]+=300;w32(u,NOW,clock[0]);finish();
+check(applied[-1]==SESSION+0xc08 and phase()==3,'S9c: the done result still applies the project, then the sequence is in its 300 ms after-load step')
+check(D()==(9,0,3),'S9c: "LOAD DONE 0.3 S" from the request to the result '+str(D()))
+curname[0]='Other';main(dt=10);main(dt=310)
+check(phase()==0,'sequence ends 300 ms after the done result, though pc_main never saw the load running')
+main(0x1001,dt=10);main(dt=400)
+check(D()[:2]==(1,2) and phase()==2,'S9c: the next Bank Select loads (BANK 2: LOADING), no wait')
+request('Mine');clock[0]+=900;w32(u,NOW,clock[0]);finish();main(dt=400)
+check(D()==(9,0,9) and phase()==0,'Bank load: LOAD DONE 0.9 S and the sequence ends')
+request('Other');clock[0]+=1200;w32(u,NOW,clock[0]);finish();main(dt=10)
+check(D()==(9,0,12) and phase()==0,'PROJ Load (no Bank Select): LOAD DONE 1.2 S, no sequence started')
+u.mem_write(LOADBUF,b'Busy\0');request('Other')
+check(string(u,LOADBUF)==b'Busy','a request while a load is pending is dropped by stock, as before')
+u.mem_write(LOADBUF,b'\0')
 print(H.checks,'scenes checks passed')
