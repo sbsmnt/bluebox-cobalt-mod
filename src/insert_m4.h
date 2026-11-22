@@ -326,7 +326,7 @@ void insert_track_a_action(uint8_t *app,unsigned requested,unsigned a,unsigned b
  * group; the group button cycles DRV -> FLTR -> SPEC. No Off: INSRT switches the insert. Stored 0 (every fresh track,
  * and pre-S8c Off) shows as CLIP not yet switched on; ordinal 2 (legacy SIN)
  * is CLIP. */
-static const uint8_t ins_order[3][6]={{1,15,3,4},{5,6,7,8},{9,10,11,12,13,14}}; /* DRV: CLIP, SAT (15, PR #7), FOLD, WRAP */
+static const uint8_t ins_order[3][6]={{1,15,3,4},{5,6,7,8},{9,10,11,12,13,14}}; /* DRV: CLIP, SAT (15, pull request #7), FOLD, WRAP */
 static const uint8_t ins_order_n[3]={4,4,6};
 static int ins_is_filter(int mode){return mode>=5 && mode<=8;}
 static int ins_is_spec(int mode){return mode>=9 && mode<=14;}

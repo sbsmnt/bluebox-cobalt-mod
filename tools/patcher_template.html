@@ -68,7 +68,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:var(--panel2);border:1
 </style>
 <header><h1>Bluebox Cobalt mod <span class="chip">dev</span></h1><p class="lede">Unofficial effects &amp; theme mod for bluebox desktop firmware 1.5.2 · v__VERSION__</p>
 <div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span><a class="chip jump" href="#features">New in v1.3 ›</a><a class="chip jump" href="#guide">Scenes and MIDI guide ›</a></div>
-<p class="notice">Development build from the <code>dev</code> branch: the next Cobalt version while it is tested on hardware. It adds synth tracks, track inserts (DRV, FLTR, SPEC), the DJ EQ and filter, an analog clock on Out 2 and User Settings to Cobalt v1.2. TOOLS shows <b>Cblt SAT1</b>. Keep your working firmware and back up your projects. For the current release use v1.2.0.</p></header>
+<p class="notice">Development build from the <code>dev</code> branch: the next Cobalt version while it is tested on hardware. It adds synth tracks, track inserts (DRV, FLTR, SPEC), the DJ EQ and filter, an analog clock on Out 2 and User Settings to Cobalt v1.2. TOOLS shows <b>Cblt 1.3d</b>. Keep your working firmware and back up your projects. For the current release use v1.2.0.</p></header>
 <section><h2><span class="step">1</span>Firmware</h2><div class="drop" id="dropzone" role="button" tabindex="0" aria-label="Choose the original BLUEBOX.BIN"><strong>Drop BLUEBOX.BIN here</strong><span class="muted">or click to browse</span><span id="fileName"></span></div><input id="file" type="file" accept=".bin,.BIN" hidden aria-label="Original firmware"><label style="display:block;margin-top:12px"><input id="restore" type="checkbox"> Restore the original from a Cobalt __VERSION__ firmware file</label><small>Restore detects this version’s theme colours automatically.</small></section>
 <section><h2><span class="step">2</span>Theme</h2>
 <div class="studio"><div class="controls">
@@ -209,7 +209,7 @@ const DRAW={
   row(148,30,[1,['A',49],...[...'SDFGHJK'].map(c=>[c,31.8]),['L',46.4]]);
   row(179,29,[1,['^',33],...[...'ZXCVBNM'].map(c=>[c,31.8]),['<-',62.4]]);
   P.rect(5,210,22,29,WELL);button(P,28,210,76,29,'123','button_idle',14);P.rect(105,210,20,29,WELL);button(P,126,210,75,29,'space','button_idle',13);P.rect(202,210,116,29,WELL);},
- tools(P){base(P);[['57GB',0,52],['Cblt SAT1',53,52],['1.5.2',107,52]].forEach(([l,x,w])=>button(P,x*2,22,w*2-2,32,l,'button_idle',13));
+ tools(P){base(P);[['57GB',0,52],['Cblt 1.3d',53,52],['1.5.2',107,52]].forEach(([l,x,w])=>button(P,x*2,22,w*2-2,32,l,'button_idle',13));
   listRows(P,['Brightness: 2.0%','Bright Fine: 0.0%','MIDIStopRcv: OFF'],0,{y:58,h:24,selText:30});
   ['Tuner','Scope','DiskMode'].forEach((l,i)=>button(P,i*107,206,106,33,l,'button_idle',13));},
  tuner(P){tunerPage(P,'in');},tunernear(P){tunerPage(P,'near');},tunerfar(P){tunerPage(P,'far');},

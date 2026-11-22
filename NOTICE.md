@@ -53,3 +53,7 @@ sound equations).
 - DJ EQ and filter, DJ view, kill buttons and their MIDI learn (v1.3): Milan
   Wulf, [pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2),
   integrated with a faster filter implementation and Cobalt's memory layout.
+- SAT insert type: the per-track saturation (Soft curve morphing into an
+  overdriven hard clip, with its drive and level compensation) by Alex
+  Bonhomme, [pull request #7](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/7),
+  integrated as a DRV insert type (Tone is its Curve).

@@ -26,7 +26,7 @@
 #define INS_SHIFT_LAST 11
 #define INS_RESO_FIRST 12
 #define INS_MODE_LAST 14   /* last SPEC type */
-#define INS_SAT 15         /* exploration: SAT drive type */
+#define INS_SAT 15         /* SAT drive type (pull request #7) */
 #define INS_IS_FILTER(m) ((m)>=INS_FILTER_FIRST && (m)<=INS_FILTER_LAST)
 #define INS_IS_SHIFT(m) ((m)>=INS_SHIFT_FIRST && (m)<=INS_SHIFT_LAST)
 #define INS_IS_RESO(m) ((m)>=INS_RESO_FIRST && (m)<=INS_MODE_LAST)

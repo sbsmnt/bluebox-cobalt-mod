@@ -335,11 +335,11 @@ send_sites=bl_sites(0x08108784,0x08100000,0x0814a000)
 if len(send_sites)<50:raise ValueError('expected the interface value-send call sites')
 for at in send_sites:
  add('synth input stand-in send '+hex(at),at,branch(at,0x08108784),branch(at,symbols(4)['synth_send']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-sat.1',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.2',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['synth7']=ss
 manifest['symbols']['pcm4']=PC
-manifest['synth_experiment']=dict(tools='Cblt SAT1',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
+manifest['synth_experiment']=dict(tools='Cblt 1.3d',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
 baseline=json.loads((ROOT/'tests/references/cobalt-1.2.0-manifest.json').read_text())
 if baseline['patched_sha256']!='c28981e5bf1b511a6be70de3293d11f81533e6606fb9d5492f90c7d0a1ad4c88':raise ValueError('Unexpected Cobalt release baseline')
 # Spectral F3: the delay constructor also allocates the shifter bank, so the
@@ -356,7 +356,7 @@ if parent['patched_sha256']!='341d1039d9e18360a30e3c32ef71cdb26e6b991429d0d887ce
 for name in ('M7 additional code','M7 compressor telemetry code',
              'in-place bank2 PCM24 burst recording loop','in-place bank2 PCM24 burst mono playback loop','in-place bank2 PCM24 burst stereo playback loop'):
  if next(p for p in parent['patches'] if p['name']==name)!=next(p for p in patches if p['name']==name):raise ValueError('Insert experiment changed unrelated I4 audio: '+name)
-manifest['insert_experiment']=dict(tools='Cblt SAT1',baseline_version='1.2.0',baseline_sha256=baseline['patched_sha256'],
+manifest['insert_experiment']=dict(tools='Cblt 1.3d',baseline_version='1.2.0',baseline_sha256=baseline['patched_sha256'],
     parameter_ids=list(range(0x1ba,0x1bf))+[0x1d5,0x1de],native_object_bytes=0x1cc,insert_state_offset=0x1d0,
     insert_state_bytes=112,object_allocation_bytes=0x240,all_13_eq_objects_extra_bytes=13*(0x240-0x1cc),
     selector_raw_units=400,selector_max_step_per_event=1,
@@ -464,7 +464,7 @@ manifest['symbols']['gr7']=gr_symbols
 manifest['symbols']['delay7']=ds
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['synth7']=ss
-manifest['synth_experiment']=dict(tools='Cblt SAT1',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
+manifest['synth_experiment']=dict(tools='Cblt 1.3d',engines=['Plaits Virtual Analog','Cobalt Cluster'],parameter_ids=list(range(0x1bf,0x1d5))+list(range(0x1d7,0x1de)),source_allocation=0xa20,hardware_tested=False)
 manifest['symbols']['cue7']=cues
 manifest['symbols']['cue4']=cue4
 manifest['symbols']['dj7']=djs
@@ -489,5 +489,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt 1.3.0-sat.1. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt 1.3.0-dev.2. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code') or p['name']=='M7 Plaits synth engine'))

@@ -22,7 +22,7 @@ here.
 ## New in v1.3 (in development)
 
 - **Track inserts:** an insert effect on every track, in three groups:
-  **DRV** (CLIP, FOLD, WRAP), **FLTR** (LP, BP, HP, DJ, with resonance and
+  **DRV** (CLIP, SAT, FOLD, WRAP), **FLTR** (LP, BP, HP, DJ, with resonance and
   an envelope follower) and **SPEC** (frequency shifter SHFT, SPRD, RING and
   resonator bank HARM, CHRD, BELL). Press A on TRACK to reach them.
 - **Synth tracks:** any track can play a built-in mono synth from MIDI,
@@ -43,7 +43,7 @@ here.
 - **New-project template:** a project named `DEFAULT` becomes the starting
   point for PROJ → New.
 
-Thanks to [Milan Wulf](https://github.com/milanwulf) for the DJ EQ ([pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2)). Details in
+Thanks to [Milan Wulf](https://github.com/milanwulf) for the DJ EQ ([pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2)) and [Alex Bonhomme](https://github.com/alexbonhomme) for the SAT saturation ([pull request #7](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/7)). Details in
 [Track inserts](#track-inserts), [Synth tracks](#synth-tracks),
 [DJ EQ and filter](#dj-eq-and-filter), [Out 2 clock](#out-2-clock),
 [User Settings](#user-settings-and-the-default-template) and the
@@ -654,7 +654,8 @@ master saturation, and the delay pitch and send to reverb were adapted from
 BlueLex, with every desktop address and hook traced independently.
 The synth's VA engine is from Mutable Instruments **Plaits** by Émilie
 Gillet (MIT licence, notices kept in `vendor/mutable/`). The DJ EQ is by
-[Milan Wulf](https://github.com/milanwulf).
+[Milan Wulf](https://github.com/milanwulf), and the SAT insert's saturation
+by [Alex Bonhomme](https://github.com/alexbonhomme).
 [NOTICE.md](NOTICE.md) has the full attribution and disclaimer.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

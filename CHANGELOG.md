@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0-dev.2 (dev, 2026-11-22)
+
+- **SAT insert type** in the DRV group (CLIP, SAT, FOLD, WRAP): the per-track
+  saturation from
+  [pull request #7](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/7) by
+  [Alex Bonhomme](https://github.com/alexbonhomme). Drive is the saturation
+  drive (up to 36 dB, level-compensated), Tone reads CURVE and morphs the
+  Soft curve into an overdriven hard clip, Mix and Output as on the other
+  drives. Saved per track, MIDI-learnable and in scenes.
+
 ## 1.3.0-dev.1 (dev, 2026-11-21)
 
 First development build of v1.3 on `dev`. TOOLS shows `Cblt 1.3d`. Includes
