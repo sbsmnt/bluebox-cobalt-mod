@@ -456,12 +456,13 @@ float dly_knob_fraction(uint8_t *w) {
         return lg2((float)value/5.f)/lg2(1000.f);
     }
     if(*(uint16_t *)(w+0x32)<12 && *(uint16_t *)(w+0x94)==INS_MODE) {
-        /* Per group: CLIP, FOLD, WRAP or LP, BP, HP, DJ or SHFT, SPRD, RING,
+        /* Per group: CLIP, SAT, FOLD, WRAP or LP, BP, HP, DJ or SHFT, SPRD, RING,
          * HARM, CHRD, BELL (0 and 2 show CLIP). */
         int m=*(int *)(w+0x98);
+        if(m==15)return 1.f/3.f; /* SAT, second in the DRV group */
         if(m>=9)return (float)(m>14?5:m-9)*.2f;
         if(m>=5)return (float)(m-5)*(1.f/3.f);
-        return m==3?.5f:m==4?1.f:0.f;
+        return m==3?2.f/3.f:m==4?1.f:0.f; /* CLIP, (SAT above), FOLD, WRAP */
     }
     if(*(uint16_t *)(w+0x32)==20 && *(uint16_t *)(w+0x94)==G_DENSITY) {
         int n=*(int *)(w+0x98);if(n<1)n=1;if(n>4)n=4;
@@ -473,5 +474,5 @@ float dly_knob_fraction(uint8_t *w) {
  * middle at +d4, official version at +34. Reuse the empty field. */
 void dly_tools_version(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813820du)(label,stock);
-    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.3d");
+    ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt SAT1");
 }

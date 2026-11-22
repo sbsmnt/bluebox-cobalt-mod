@@ -133,7 +133,7 @@ __attribute__((naked)) void gate_meter_stereo_shim(void) {__asm volatile("mov r2
  * Gate threshold included, are already in its table). */
 #include "synth_params.h"
 #define LEARN_EXTRA_RANGES \
-    {INS_MODE,5,0,15,0,0},{INS_DRIVE,8,0,0,0,1000},{INS_TONE,8,0,0,0,1000},{INS_MIX,8,0,0,0,1000}, \
+    {INS_MODE,5,0,16,0,0},{INS_DRIVE,8,0,0,0,1000},{INS_TONE,8,0,0,0,1000},{INS_MIX,8,0,0,0,1000}, \
     {INS_OUTPUT,7,0,0,-18000,6000},{INS_ON,5,0,2,0,0},{INS_CHORD,5,0,INS_CHORD_COUNT,0,0}, \
     {SYN_ON,5,0,2,0,0},{SYN_ENGINE,5,0,SYN_ENGINE_COUNT,0,0},{SYN_CHANNEL,1,0,0,1,16}, \
     {SYN_HARMONICS,8,0,0,0,1000},{SYN_TIMBRE,8,0,0,0,1000},{SYN_MORPH,8,0,0,0,1000}, \

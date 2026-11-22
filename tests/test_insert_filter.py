@@ -89,5 +89,5 @@ def alloc(q):
 stub(u,0x8103128,alloc);call(u,0x8134cb8,0)
 meta=0xc0010000+28*0x1ba;choices=u32(u,meta+8)
 names=[bytes(u.mem_read(u32(u,choices+4*i),20)).split(b'\0')[0].decode() for i in range(u32(u,meta+12))]
-check(names==['CLIP','CLIP','CLIP','FOLD','WRAP','LP','BP','HP','DJ','SHFT','SPRD','RING','HARM','CHRD','BELL'],'native mode labels: 0 and 2 show CLIP, LP/BP/HP/DJ added (spectral F1: + SHFT/SPRD/RING)')
+check(names==['CLIP','CLIP','CLIP','FOLD','WRAP','LP','BP','HP','DJ','SHFT','SPRD','RING','HARM','CHRD','BELL','SAT'],'native mode labels: 0 and 2 show CLIP, LP/BP/HP/DJ added (spectral F1: + SHFT/SPRD/RING)')
 print(H.checks,'insert filter ARM checks passed; device sound and CPU remain hardware checks.')

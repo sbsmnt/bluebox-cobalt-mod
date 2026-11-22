@@ -326,8 +326,8 @@ void insert_track_a_action(uint8_t *app,unsigned requested,unsigned a,unsigned b
  * group; the group button cycles DRV -> FLTR -> SPEC. No Off: INSRT switches the insert. Stored 0 (every fresh track,
  * and pre-S8c Off) shows as CLIP not yet switched on; ordinal 2 (legacy SIN)
  * is CLIP. */
-static const uint8_t ins_order[3][6]={{1,3,4},{5,6,7,8},{9,10,11,12,13,14}};
-static const uint8_t ins_order_n[3]={3,4,6};
+static const uint8_t ins_order[3][6]={{1,15,3,4},{5,6,7,8},{9,10,11,12,13,14}}; /* DRV: CLIP, SAT (15, PR #7), FOLD, WRAP */
+static const uint8_t ins_order_n[3]={4,4,6};
 static int ins_is_filter(int mode){return mode>=5 && mode<=8;}
 static int ins_is_spec(int mode){return mode>=9 && mode<=14;}
 static int ins_is_shift(int mode){return mode>=9 && mode<=11;}
@@ -358,7 +358,7 @@ static void ins_captions(uint8_t *p,int mode) {
     for(unsigned i=1;i<4;i++) {
         uint8_t *w=insert_knob(p,i);char *to=(char *)w+0xf8;
         const char *from=ins_is_filter(mode)?filter_caption[i-1]:ins_is_shift(mode)?shift_caption[i-1]:
-            ins_is_reso(mode)?reso_caption[i-1]:"";
+            ins_is_reso(mode)?reso_caption[i-1]:mode==15 && i==2?"CURVE":"";
         do {*to++=*from;}while(*from++);
         insert_knob_text(w,1);
     }
@@ -380,7 +380,10 @@ static void ins_type_defaults(uint8_t *p,unsigned ch,int old,int next) {
         if(!ins_is_shift(old)){values[0]=750;values[1]=0;values[2]=500;}
     } else if(ins_is_reso(next)) {
         if(!ins_is_reso(old)){values[0]=167;values[1]=547;values[2]=600;} /* C2, ~1 s */
-    } else if(ins_group_of(old)) {
+    } else if(next==15) {
+        /* SAT: about 11 dB of drive on the Soft curve, fully wet. */
+        if(old!=15){values[0]=300;values[1]=0;values[2]=1000;}
+    } else if(ins_group_of(old) || old==15) {
         values[0]=350;values[1]=650;values[2]=1000;
     }
     for(unsigned i=0;i<3;i++) {

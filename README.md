@@ -236,7 +236,7 @@ fades through dry, so nothing clicks.
 
 | Group | Types | Knobs |
 |---|---|---|
-| **DRV** | **CLIP** (hard clip, dirtier over the top of Drive), **FOLD** (wavefolder), **WRAP** (wrap-around, anti-aliased) | Drive, Tone, Mix, Output |
+| **DRV** | **CLIP** (hard clip, dirtier over the top of Drive), **SAT** (soft saturation that **CURVE** morphs into an overdriven hard clip, level-matched), **FOLD** (wavefolder), **WRAP** (wrap-around, anti-aliased) | Drive, Tone (**CURVE** on SAT), Mix, Output |
 | **FLTR** | **LP**, **BP**, **HP**: resonant filters. **DJ**: one knob, centre off, left low-pass, right high-pass | Cutoff (shown in Hz), **RES** (resonance, up to squelchy), **ENV** (envelope follower: right opens the filter on loud hits, left closes it), Output |
 | **SPEC** | **SHFT**, **SPRD**, **RING**: frequency shifter | **Shift** (0 Hz at the centre, up to about ±2.5 kHz), **FDBK** (feedback, up to 95 %), Mix, Output |
 | **SPEC** | **HARM**, **CHRD**, **BELL**: resonator bank | **Pitch** (C1–C7), **Decay** (50 ms–12 s), Mix, Output, and **Chord** for CHRD |

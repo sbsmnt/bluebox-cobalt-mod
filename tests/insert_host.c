@@ -25,6 +25,28 @@ static double rms_at(int drive,int tone,int mix,int output,double frequency,doub
     if(third)*third=2*sqrt(re*re+im*im)/count;
     return sqrt(power/count);
 }
+/* SAT (PR #7 exploration): the contributor's per-track stage as reference,
+ * fully wet (his mix is 1 above 5% drive): out = shape(x*g)*k. */
+static float pr_soft(float x){if(x>3.f)return 1.f;if(x<-3.f)return -1.f;float x2=x*x;return x*(27.f+x2)/(27.f+9.f*x2);}
+static float pr_shape(float y,float m){float s=pr_soft(y),c=y*(1.f+3.f*m);c=c>1.f?1.f:c<-1.f?-1.f:c;return s+m*(c-s);}
+static double sat_run(int drive,int curve,double amp,double hz,double *third,double *pr_diff) {
+    struct insert_drive s;ins_reset(&s);ins_event(&s,INS_MODE,INS_SAT);ins_event(&s,INS_DRIVE,drive);
+    ins_event(&s,INS_TONE,curve);ins_event(&s,INS_MIX,1000);ins_event(&s,INS_OUTPUT,0);
+    float g=exp2f(6.f*drive*.001f),m=curve*.001f,k=.2f/pr_shape(.2f*g,m);
+    double power=0,re=0,im=0,worst=0;unsigned count=0;float l[32],x[32];
+    for(unsigned block=0;block<3000;block++) {
+        for(unsigned i=0;i<32;i++)x[i]=l[i]=(float)(amp*sin(2*PI*hz*(block*32+i)/48000.));
+        ins_run(&s,l,0,32);
+        if(block>=1500)for(unsigned i=0;i<32;i++) {
+            double t=2*PI*hz*(block*32+i)/48000.,d=fabs(l[i]-pr_shape(x[i]*g,m)*k);
+            if(d>worst)worst=d;
+            power+=(double)l[i]*l[i];re+=l[i]*cos(3*t);im-=l[i]*sin(3*t);count++;
+        }
+    }
+    if(third)*third=2*sqrt(re*re+im*im)/count;
+    if(pr_diff)*pr_diff=worst;
+    return sqrt(power/count);
+}
 int main(void) {
     struct insert_drive s,a,b;float l[34],r[34],dry[32];
     struct fsh_state fsb;fsh_init(&fsb,500,0,0); /* F3: the track's shifter state (SDRAM bank on the device) */
@@ -244,6 +266,31 @@ int main(void) {
             else CHECK(fabs(10*log10(ea/eb))<.2,"SHFT/RING wake on sound at the reference's level (oscillator phase may differ)");
             if(modes[m][0]==13)CHECK(heard_late,"CHRD with 12 s decay still rings 1.5 s after the input stopped");
         }
+    }
+    /* SAT (PR #7 exploration, mode 15). */
+    {
+        struct insert_drive s;float l[32],dry[32];
+        for(unsigned i=0;i<32;i++)dry[i]=l[i]=(float)(.3*sin(i*.37));
+        ins_reset(&s);ins_event(&s,INS_MODE,INS_SAT);ins_event(&s,INS_DRIVE,0);ins_event(&s,INS_TONE,700);ins_run(&s,l,0,32);
+        CHECK(!memcmp(l,dry,sizeof dry),"SAT: Drive 0 is exact dry, whatever the Curve");
+        double worst_db=0,worst_pr=0;
+        for(int d=100;d<=1000;d+=300)for(int c=0;c<=1000;c+=500) {
+            double diff,rms=sat_run(d,c,.2,1000.,0,&diff),db=fabs(20*log10(rms/(.2/sqrt(2.))));
+            if(db>worst_db)worst_db=db;
+            if(diff>worst_pr)worst_pr=diff;
+        }
+        printf("INFO SAT level vs dry at the 0.2 reference: worst %.2f dB; worst difference from PR #7's stage %.4f\n",worst_db,worst_pr);
+        CHECK(worst_db<3.5,"SAT stays near the dry level (as PR #7: the peak is matched at the 0.2 reference, so heavy drive squares the wave and reads up to ~3 dB louder in RMS)");
+        CHECK(worst_pr<.01,"SAT follows PR #7's curve, gain and level compensation (within 0.01 at 1 kHz; the insert adds only its ~7 Hz DC blocker)");
+        double soft3,hard3,low3;
+        sat_run(500,0,.25,200.,&soft3,0);sat_run(500,1000,.25,200.,&hard3,0);sat_run(150,0,.25,200.,&low3,0);
+        printf("INFO SAT third harmonic at 200 Hz: drive 15%% soft %.4f, drive 50%% soft %.4f, hard %.4f\n",low3,soft3,hard3);
+        CHECK(soft3>low3*2 && hard3>soft3*1.5,"SAT: more Drive adds harmonics, and Curve towards the hard clip adds more");
+        int bounded=1;ins_reset(&s);ins_event(&s,INS_MODE,INS_SAT);ins_event(&s,INS_MIX,1000);
+        for(unsigned b=0;b<20000;b++){ins_event(&s,INS_DRIVE,(int)(b%1001));ins_event(&s,INS_TONE,(int)((b*7)%1001));
+            for(unsigned i=0;i<32;i++)l[i]=(float)(4*sin(b*32+i));ins_run(&s,l,0,32);
+            for(unsigned i=0;i<32;i++)if(!isfinite(l[i])||fabsf(l[i])>8.f)bounded=0;}
+        CHECK(bounded,"SAT stays finite and bounded through Drive / Curve sweeps on +12 dB input");
     }
     printf("%u insert audio/sanitizer checks passed; no oversampling or hardware-cycle claim.\n",checks);
     return 0;

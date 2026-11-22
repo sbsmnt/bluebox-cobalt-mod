@@ -41,8 +41,9 @@ for encoder,pid in enumerate(IDS[:4]):
  u.mem_write(EV,struct.pack('<6I',0x32,0x8148664,0,encoder,delta&0xffffffff,0));call(u,global_fn,T,EV)
  now=call(u,0x8120234,APP+0xc08+7*0x30,pid)
  print('INFO encoder',encoder,'old/new',old,now,'commands',commands,'widget',binding(encoder))
- # The first type pick on a fresh track also commits INSRT Off once.
- check(now!=old and commands==([(7,0x1d5,0)] if encoder==0 else [])+[(7,pid,now)],'real hardware encoder edits only its new parameter and sends one exact IPC command '+hex(pid))
+ # The first type pick on a fresh track also commits INSRT Off once; it
+ # lands on SAT (second DRV type), which also sets its starting Drive / CURVE / Mix.
+ check(now!=old and commands==([(7,0x1d5,0)] if encoder==0 else [])+[(7,pid,now)]+([(7,0x1bb,300),(7,0x1bc,0),(7,0x1bd,1000)] if encoder==0 else []),'real hardware encoder edits only its new parameter and sends one exact IPC command '+hex(pid))
  flush()
  check(binding(encoder)[1]==(now if now<0x80000000 else now-0x100000000),'native notification refresh retains insert binding/value '+hex(pid))
 check(call(u,0x8120234,APP+0xc08+7*0x30,4)==0 and call(u,0x8120234,APP+0xc08+7*0x30,0x1ae)==((-96000)&0xffffffff),'insert encoder turns leave native Vol and Gate untouched')
@@ -61,7 +62,7 @@ check([binding(i)[1] for i in range(5)]==[0,350,650,1000,0] and all(struct.unpac
 # Complete selector travel reaches consecutive choices, while percentages
 # retain native fine travel. Touch-focus stays on its actual bank.
 bind_notify(0)
-FRACTION={0:0.,1:0.,2:0.,3:.5,4:1.,5:0.,6:1/3.,7:2/3.,8:1.,9:0.,10:.2,11:.4,12:.6,13:.8,14:1.}
+FRACTION={0:0.,1:0.,2:0.,15:1/3.,3:2/3.,4:1.,5:0.,6:1/3.,7:2/3.,8:1.,9:0.,10:.2,11:.4,12:.6,13:.8,14:1.}
 GB=u32(u,0x38800c08)  # the constructed DRV / FLTR toggle
 def group_label():return b'FLTR' if b'FLTR' in bytes(u.mem_read(GB,0xf8)) else b'SPEC' if b'SPEC' in bytes(u.mem_read(GB,0xf8)) else b'DRV' if b'DRV' in bytes(u.mem_read(GB,0xf8)) else b''
 def tap_group():
@@ -75,23 +76,25 @@ def saved(pid):v=call(u,0x8120234,APP+0xc08+2*0x30,pid);return v-(1<<32) if v>=1
 # A fresh track stores 0 and shows CLIP; there is no Off position. The type
 # encoder stays in the shown group; the DRV / FLTR button ('G') switches group.
 check(GB and u.mem_read(GB+0x30,1)==b'\0' and group_label()==b'DRV' and struct.unpack('<H',u.mem_read(GB+0xfa,2))[0]==0x1d6,'insert page shows the DRV group button')
-steps=[(-400,0),(400,3),(400,4),(400,4),(-400,3),(-400,1),(-400,1),('G',5),(400,6),(400,7),(400,8),(400,8),(-400,7),(-400,6),(-400,5),(-400,5),
+steps=[(-400,0),(400,15),(400,3),(400,4),(400,4),(-400,3),(-400,15),(-400,1),(-400,1),('G',5),(400,6),(400,7),(400,8),(400,8),(-400,7),(-400,6),(-400,5),(-400,5),
        ('G',9),(400,10),(400,11),(400,12),(400,13),(400,14),(400,14),(-400,13),(-400,12),(-400,11),(-400,10),(-400,9),(-400,9),
-       ('G',1),(400,3),('G',5),('G',9),('G',1)]
-def want_group(m):return b'FLTR' if 5<=m<=8 else b'SPEC' if m>=9 else b'DRV'
+       ('G',1),(400,15),('G',5),('G',9),('G',1)]
+def want_group(m):return b'FLTR' if 5<=m<=8 else b'SPEC' if 9<=m<=14 else b'DRV'
 previous=0
 for delta,expected in steps:
  commands.clear();notifications.clear()
  if delta=='G':tap_group()
  else:
   u.mem_write(EV,struct.pack('<6I',0x32,0x8148664,0,0,delta&0xffffffff,0));call(u,global_fn,T,EV);flush()
- check(binding(0)[1]==expected and group_label()==want_group(expected),'Insert selector steps inside DRV (CLIP / FOLD / WRAP), FLTR (LP / BP / HP / DJ) and SPEC (SHFT / SPRD / RING / HARM / CHRD / BELL), no Off '+str((delta,expected)))
+ check(binding(0)[1]==expected and group_label()==want_group(expected),'Insert selector steps inside DRV (CLIP / SAT / FOLD / WRAP), FLTR (LP / BP / HP / DJ) and SPEC (SHFT / SPRD / RING / HARM / CHRD / BELL), no Off '+str((delta,expected)))
  call(u,S['dly_knob_fraction'],T+OFFSETS[0])
  check(abs(struct.unpack('<f',struct.pack('<I',u.reg_read(UC_ARM_REG_S0)))[0]-FRACTION[expected])<1e-6,'Insert knob spans its group on the full visual scale '+str(expected))
  if 9<=expected<=11:
   check([caption(i) for i in (1,2,3)]==[b'SHIFT',b'FDBK',b'MIX'],'shifter captions SHIFT / FDBK / MIX while idle '+str((expected,[caption(i) for i in (1,2,3)])))
   if not 9<=previous<=11:check(saved(0x1bb)==750 and saved(0x1bc)==0 and saved(0x1bd)==500,'entering the shifter: +14 Hz, no feedback, half mix '+str(expected))
   else:check(saved(0x1bb)==750 and saved(0x1bc)==0 and saved(0x1bd)==500,'shifter types keep their values '+str(expected))
+ elif expected==15:
+  check([caption(i) for i in (1,2,3)]==[b'DRIVE',b'CURVE',b'MIX'] and saved(0x1bb)==300 and saved(0x1bc)==0 and saved(0x1bd)==1000,'SAT (PR #7 exploration): Tone reads CURVE; entering SAT starts at ~11 dB drive, Soft curve, full mix '+str([caption(i) for i in (1,2,3)]))
  elif expected>=12:
   check([caption(i) for i in (1,2,3)]==[b'PITCH',b'DECAY',b'MIX'],'resonator captions PITCH / DECAY / MIX while idle '+str((expected,[caption(i) for i in (1,2,3)])))
   check(saved(0x1bb)==167 and saved(0x1bc)==547 and saved(0x1bd)==600,'resonator types start (and stay) at C2, 1 s decay, 60% mix '+str(expected))
@@ -237,7 +240,7 @@ for delta in (-100,-3,1,100,-1000):
 check(saved(0x1ba)==1 and saved(0x1bb)==350,'On/Off leaves the chosen type and its settings alone')
 bind_notify(0);fresh();commands.clear();notifications.clear()
 u.mem_write(EV,struct.pack('<6I',0x32,0x8148664,0,0,400,0));call(u,global_fn,T,EV);flush()
-check(saved(0x1ba)==3 and saved(ON)==0 and lit()==0 and (2,ON,0) in commands,'picking a type on a fresh track keeps INSRT Off '+str(commands))
+check(saved(0x1ba)==15 and saved(ON)==0 and lit()==0 and (2,ON,0) in commands,'picking a type on a fresh track keeps INSRT Off '+str(commands))
 fresh();tap_group()
 check(saved(0x1ba)==5 and saved(ON)==0 and lit()==0 and group_label()==b'FLTR' and all(c[1]!=0x1d6 for c in commands),'FLTR on a fresh track picks LP, keeps INSRT Off and never stores the button id '+str(commands))
 bind_notify(1)

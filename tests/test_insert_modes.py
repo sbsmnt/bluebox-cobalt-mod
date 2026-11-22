@@ -55,5 +55,5 @@ def alloc(q):
 stub(u,0x8103128,alloc);call(u,0x8134cb8,0)
 meta=0xc0010000+28*0x1ba;choices=u32(u,meta+8)
 names=[bytes(u.mem_read(u32(u,choices+4*i),20)).split(b'\0')[0].decode() for i in range(u32(u,meta+12))]
-check(names==['CLIP','CLIP','CLIP','FOLD','WRAP','LP','BP','HP','DJ','SHFT','SPRD','RING','HARM','CHRD','BELL'],'native enum labels keep ordinals 0-4 (fresh 0 and legacy SIN show CLIP) and add the filter types')
+check(names==['CLIP','CLIP','CLIP','FOLD','WRAP','LP','BP','HP','DJ','SHFT','SPRD','RING','HARM','CHRD','BELL','SAT'],'native enum labels keep ordinals 0-4 (fresh 0 and legacy SIN show CLIP) and add the filter types')
 print(H.checks,'new-mode ARM/compatibility checks passed; device sound and CPU remain hardware checks.')

@@ -12,7 +12,9 @@
 #define INS_MAGIC 0x494e5331u
 /* Modes: 0 Off, 1 CLIP, 2 legacy SIN (loads as CLIP), 3 FOLD, 4 WRAP,
  * 5..8 filter LP, BP, HP, DJ, 9..11 frequency shifter SHFT, SPRD, RING,
- * 12..14 resonator bank HARM, CHRD, BELL (9..14: the SPEC group).
+ * 12..14 resonator bank HARM, CHRD, BELL (9..14: the SPEC group),
+ * 15 SAT (DRV group): the per-track saturation of pull request #7 by
+ * Alex Bonhomme, Soft curve morphing to an overdriven hard clip.
  * In filter modes Drive is Cutoff, Tone is Resonance and Mix is bipolar Env
  * depth (500 = off). In shifter modes Drive is Shift (500 = 0 Hz), Tone is
  * Feedback and Mix is dry/wet. In resonator modes Drive is Pitch, Tone is
@@ -23,7 +25,8 @@
 #define INS_SHIFT_FIRST 9
 #define INS_SHIFT_LAST 11
 #define INS_RESO_FIRST 12
-#define INS_MODE_LAST 14
+#define INS_MODE_LAST 14   /* last SPEC type */
+#define INS_SAT 15         /* exploration: SAT drive type */
 #define INS_IS_FILTER(m) ((m)>=INS_FILTER_FIRST && (m)<=INS_FILTER_LAST)
 #define INS_IS_SHIFT(m) ((m)>=INS_SHIFT_FIRST && (m)<=INS_SHIFT_LAST)
 #define INS_IS_RESO(m) ((m)>=INS_RESO_FIRST && (m)<=INS_MODE_LAST)
@@ -83,7 +86,7 @@ static inline void ins_select(struct insert_drive *s) {
 }
 static inline void ins_event(struct insert_drive *s,unsigned id,int value) {
     switch(id) {
-    case INS_MODE:s->selected=value==2?1:value>=0 && value<=INS_MODE_LAST?value:0;ins_select(s);break;
+    case INS_MODE:s->selected=value==2?1:value>=0 && value<=INS_SAT?value:0;ins_select(s);break;
     case INS_ON:s->on=value!=0;ins_select(s);break;
     case INS_CHORD:s->chord=(uint8_t)(value>=0 && value<(int)INS_CHORD_COUNT?value:0);break;
     case INS_DRIVE:value=ins_clamp(value,0,1000);if(value!=s->drive){s->drive=value;s->dirty=1;}break;
@@ -136,11 +139,26 @@ static inline float ins_wrap_aa(float x,float *px,float *pw) {
     float y=.5f*sum*d/dx;
     return y>1.f?1.f:y<-1.f?-1.f:y;
 }
-static inline float ins_shape(unsigned mode,float x) {
+/* SAT (pull request #7): the master Soft curve (adapted from BlueLex, as in
+ * saturation.h) morphing with Curve m (Tone, 0..1) into a hard clip fed up
+ * to 4x the driven signal, so the top of Curve clips much harder. */
+static inline float ins_soft(float x) {
+    if(x>3.f)return 1.f;
+    if(x<-3.f)return -1.f;
+    float x2=x*x;
+    return x*(27.f+x2)/(27.f+9.f*x2);
+}
+static inline float ins_sat(float y,float m) {
+    float s=ins_soft(y),c=y*(1.f+3.f*m);
+    c=c>1.f?1.f:c<-1.f?-1.f:c;
+    return s+m*(c-s);
+}
+static inline float ins_shape(unsigned mode,float x,float m) {
     switch(mode) {
     case 3:return ins_fold(x);
     case 4:return ins_wrap(x);
-    default:return ins_curve(x); /* mode 1 retains I1's cubic soft clip */
+    case INS_SAT:return ins_sat(x,m);
+    default:(void)m;return ins_curve(x); /* mode 1 retains I1's cubic soft clip */
     }
 }
 static inline float ins_finite(float x){return x>=-1e12f && x<=1e12f?x:0.f;}
@@ -150,7 +168,7 @@ static inline float ins_toward(float value,float target,float fraction) {
 }
 static inline int ins_active(const struct insert_drive *s) {
     if(INS_IS_FAMILY(s->mode) || INS_IS_FAMILY(s->running_mode))return 1;
-    return (s->mode>0 && s->mode<=4 && s->drive>0 && s->mix>0) || s->enable>0.f;
+    return ((s->mode>0 && s->mode<=4) || s->mode==INS_SAT) && s->drive>0 && s->mix>0 ? 1 : s->enable>0.f;
 }
 static inline void ins_quiet(struct insert_drive *s) {
     if(INS_IS_FILTER(s->running_mode)){flt_quiet(&s->f);return;}
@@ -187,7 +205,7 @@ static inline unsigned ins_shared_block(struct insert_drive *s,float *l,float *r
  * controls need no six-parameter per-sample ramp; each channel keeps its
  * filter histories in local registers. Preserve the original arithmetic. */
 static inline __attribute__((always_inline)) void ins_steady(struct insert_drive *s,float *l,float *r,unsigned n,unsigned mode) {
-    float g=s->gain,b=s->blend,e=s->enable,v=s->level,a=s->alpha,k=s->norm;
+    float g=s->gain,b=s->blend,e=s->enable,v=s->level,a=s->alpha,k=s->norm,m=(float)s->tone*.001f;
     unsigned relation=ins_shared_block(s,l,r,n);
     if(relation==2u)return;
     unsigned twin=relation==1u;
@@ -199,7 +217,7 @@ static inline __attribute__((always_inline)) void ins_steady(struct insert_drive
             if(i==n)continue;
         }
         for(unsigned i=0;i<n;i++) {
-            float dry=ins_finite(samples[i]),w=(mode==4?ins_wrap_aa(dry*g,&px,&pw):ins_shape(mode,dry*g))*k,previous=lp;
+            float dry=ins_finite(samples[i]),w=(mode==4?ins_wrap_aa(dry*g,&px,&pw):ins_shape(mode,dry*g,m))*k,previous=lp;
             if(mode>=3)w=ins_shape_result(w);
             lp+=(w-lp)*a;
             dc=lp-previous+.999084f*dc;
@@ -229,16 +247,27 @@ static inline void ins_run(struct insert_drive *s,float *l,float *r,unsigned n) 
         /* S8d: CLIP gets up to 3x more gain over the top 30% of Drive
          * (+9.5 dB at maximum); below 70% it is unchanged. */
         if(mode==1 && d>.7f){float t=(d-.7f)*(1.f/.3f);gain*=1.f+2.f*t*t;}
+        if(mode==INS_SAT) {
+            /* PR #7: up to 36 dB of drive, level-matched at the 0.2
+             * reference through the current curve; Tone is the Curve, so
+             * the tone low-pass stays open (alpha 1 passes exactly). */
+            gain=ins_exp2(6.f*d);
+            s->target_gain=gain;
+            s->target_norm=.2f/ins_sat(.2f*gain,(float)s->tone*.001f);
+            s->target_alpha=1.f;
+        } else {
         float reference=.2f*gain;if(reference>1.f)reference=1.f;
         s->target_gain=gain;
         s->target_norm=.2f/(mode>=3?reference:ins_curve(reference));
         float hz=800.f*ins_exp2(4.321928095f*(float)s->tone*.001f);
         s->target_alpha=1.f-ins_exp2(-.00018884834f*hz);
+        }
         s->target_level=ins_exp2((float)s->output/6020.599913f);
         s->dirty=0;
     }
     float gain=s->target_gain,alpha=s->target_alpha,level=s->target_level,norm=s->target_norm;
     float enable=s->mode>0 && s->mode==s->running_mode && s->drive>0 && s->mix>0?1.f:0.f;
+    float m=(float)s->tone*.001f; /* SAT curve (unused by the other drives) */
     float blend=(float)s->mix*.001f;
     unsigned stereo=r && r!=l;
     if(!stereo)s->lp[1]=s->dc[1]=s->wx[1]=s->ww[1]=0.f;
@@ -260,13 +289,13 @@ static inline void ins_run(struct insert_drive *s,float *l,float *r,unsigned n) 
     float g=s->gain,b=s->blend,e=s->enable,v=s->level,a=s->alpha,k=s->norm;
     for(unsigned i=0;i<n;i++) {
         g+=dg;b+=db;e+=de;v+=dv;a+=da;k+=dk;
-        float dl=ins_finite(l[i]),w=(mode==4?ins_wrap_aa(dl*g,&s->wx[0],&s->ww[0]):ins_shape(mode,dl*g))*k,previous=s->lp[0];
+        float dl=ins_finite(l[i]),w=(mode==4?ins_wrap_aa(dl*g,&s->wx[0],&s->ww[0]):ins_shape(mode,dl*g,m))*k,previous=s->lp[0];
         s->lp[0]+=(w-s->lp[0])*a;
         s->dc[0]=s->lp[0]-previous+.999084f*s->dc[0]; /* approx 7 Hz high-pass */
         float wet=s->dc[0],mixed=dl+b*(wet-dl);
         l[i]=dl+e*(mixed*v-dl);
         if(stereo) {
-            float dr=ins_finite(r[i]);w=(mode==4?ins_wrap_aa(dr*g,&s->wx[1],&s->ww[1]):ins_shape(mode,dr*g))*k;previous=s->lp[1];
+            float dr=ins_finite(r[i]);w=(mode==4?ins_wrap_aa(dr*g,&s->wx[1],&s->ww[1]):ins_shape(mode,dr*g,m))*k;previous=s->lp[1];
             s->lp[1]+=(w-s->lp[1])*a;
             s->dc[1]=s->lp[1]-previous+.999084f*s->dc[1];
             wet=s->dc[1];mixed=dr+b*(wet-dr);
@@ -280,6 +309,7 @@ settled:
     switch(mode) {
     case 3:ins_steady(s,l,r,n,3);break;
     case 4:ins_steady(s,l,r,n,4);break;
+    case INS_SAT:ins_steady(s,l,r,n,INS_SAT);break;
     default:ins_steady(s,l,r,n,1);break;
     }
 

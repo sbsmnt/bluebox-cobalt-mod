@@ -11,7 +11,7 @@ const ctx={document:{getElementById:id=>elements[id]},URL,Blob,atob};ctx.globalT
 let n=0;function check(c,msg){assert(c,msg);n++;console.log('PASS',msg);}
 function run(s){return vm.runInContext(s,ctx);}
 (async()=>{
-check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.1'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
+check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-sat.1'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
 check(!html.includes("'35.2%'"),'preview header has no numeric CPU percentage (the diagnostic was removed)');
 const views=run('SCREEN_LIST.map(x=>x[0])'),show=v=>run('setView('+JSON.stringify(v)+')');
 check(views.length===27&&!views.includes('delay'),'27 photo-based screens, no invented FX1 Delay page');
@@ -63,7 +63,7 @@ elements.previewDepth.value='rgb565';elements.previewDepth.onchange();check(!ele
 run("applyTheme({background:'#141414',text:'#141414',button_idle:'#141414',slot15:'#141414',knob:'#0b0b0b'})");check(elements.contrast.textContent.includes('low contrast'),'low-contrast feedback covers invisible text/knobs');
 elements.knobHex.value='#fff';elements.knobHex.oninput();check(elements.knobHex.ariaInvalid==='true'&&elements.contrast.textContent.includes('complete #RRGGBB'),'invalid hex is explained beside retained valid preview');
 check(!/<(?:script|link|iframe)[^>]+(?:src|href)\s*=\s*"(?!data:)/i.test(html)&&!html.includes('fetch('),'preview introduces no remote assets or network requests');
-check(html.includes('<title>Bluebox Cobalt mod (dev)</title>')&&html.includes('<h1>Bluebox Cobalt mod <span class="chip">dev</span></h1>')&&html.includes('Development build from the <code>dev</code> branch')&&html.includes('Cblt 1.3d'),'page identifies the development build and its TOOLS label');
+check(html.includes('<title>Bluebox Cobalt mod (dev)</title>')&&html.includes('<h1>Bluebox Cobalt mod <span class="chip">dev</span></h1>')&&html.includes('Development build from the <code>dev</code> branch')&&html.includes('Cblt SAT1'),'page identifies the development build and its TOOLS label');
 check(/<div class="toolbar"><label>Preset <select id="themePreset">[\s\S]*?<\/select><\/label><\/div>\n<div class="toolbar actions"><button id="themeReset"[^>]*>Reset<\/button><button id="themeExport"[^>]*>Export<\/button><button id="themeImport"/.test(html),'Reset, Export and Import sit in a row under the preset selector');
 check(/<details class="contrast"><summary>Contrast check<\/summary><small id="contrast">/.test(html),'contrast report is collapsible');
 check(html.includes('max-width:1500px')&&!html.includes('class="badge'),'page is up to 1500px wide with no status badges');

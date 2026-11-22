@@ -65,5 +65,15 @@ for stereo in (False,True):
   before,after=counts
   records.append(dict(stereo=stereo,mode=mode,I3_instructions=before,I5_instructions=after,reduction_percent=round(100*(before-after)/before,2)))
   check(after<=before+16+48 if mode==0 else after<before*1.3 if mode==4 else after<before*.9,'matched native callback improves steady active cost '+str((stereo,mode,before,after)))
+# SAT (PR #7 exploration): steady cost beside CLIP on the current build.
+for stereo in (False,True):
+ q=gsetup(stereo=stereo)[0]
+ for b in range(300):gblock(q,signal(.2,b),signal(.1,b,719) if stereo else None,[(0x1ba,15),(0x1bb,750),(0x1bc,500)] if b==0 else [])
+ count=[0];hook=q.hook_add(UC_HOOK_CODE,lambda a,b,c,d:count.__setitem__(0,count[0]+1));q.ctl_remove_cache(0x8000000,0x8200000)
+ gblock(q,signal(.2,300),signal(.1,300,719) if stereo else None);q.hook_del(hook)
+ clip=[r['I5_instructions'] for r in records if r['stereo']==stereo and r['mode']==1][0]
+ print('INFO SAT %s: %d instructions per native block (CLIP %d)'%('stereo' if stereo else 'mono',count[0],clip))
+ check(count[0]<clip*1.6,'SAT costs at most ~1.6x CLIP on executed ARM '+str((stereo,count[0],clip)))
+ del q;gc.collect()
 (ROOT/'tests/insert-optimization.json').write_text(json.dumps(dict(records=records,exact_pcm=True,hardware_cpu_measured=False),indent=2)+'\n')
 print(H.checks,'matched I3/current ARM audio/performance checks passed; physical CPU savings require matched hardware tests.')

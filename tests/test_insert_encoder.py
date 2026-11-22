@@ -19,17 +19,17 @@ def turn(delta):
 def one(edits,mode):
  # One type edit; entering/leaving a filter adds only its Cutoff/Res/Env defaults.
  return edits[:1]==[(7,PID,mode)] and all(e[0]==7 and e[1] in (0x1bb,0x1bc,0x1bd) for e in edits[1:])
-# No Off position, and travel stays in the shown group: DRV runs CLIP, FOLD,
-# WRAP; FLTR runs LP, BP, HP, DJ.
+# No Off position, and travel stays in the shown group: DRV runs CLIP, SAT,
+# FOLD, WRAP; FLTR runs LP, BP, HP, DJ.
 set_mode(1)
 now,edits=turn(20)
 check(now==1 and not edits,'ordinary multi-unit raw message cannot jump CLIP to WRAP')
-for expected in (3,4):
- for i in range(19 if expected==3 else 20):now,edits=turn(20)
+for expected in (15,3,4):
+ for i in range(19 if expected==15 else 20):now,edits=turn(20)
  check(now==expected and one(edits,expected),'slow travel reaches each consecutive type with exactly one model/IPC edit '+str(expected))
 for i in range(5):now,edits=turn(32767)
 check(now==4 and not edits,'DRV travel stops at WRAP (never enters the filters)')
-for expected in (3,1):
+for expected in (3,15,1):
  for i in range(20):now,edits=turn(-20)
  check(now==expected and one(edits,expected),'slow reverse travel reaches every intermediate type '+str(expected))
 set_mode(8)
@@ -43,10 +43,10 @@ check(now==5 and not edits,'FLTR travel stops at LP (never enters the drives)')
 # Huge bursts and native clock-dependent acceleration never skip a choice.
 for dt in (1,10,500,2000):
  set_mode(1)
- for expected in (3,4):
+ for expected in (15,3):
   w32(u,0x3001eb3c,100000+dt*expected);now,edits=turn(32767)
   check(now==expected and one(edits,expected),'one forward choice maximum despite large/fast raw input '+str((dt,expected)))
- for expected in (3,1):
+ for expected in (15,1):
   now,edits=turn(-32768)
   check(now==expected and one(edits,expected),'one reverse choice maximum despite large raw input '+str((dt,expected)))
 # Tiny inputs accumulate over time. No pause threshold discards a deliberate turn.
@@ -54,18 +54,18 @@ set_mode(1)
 for i in range(399):
  w32(u,0x3001eb3c,1000000+i*2000);now,edits=turn(1)
 check(now==1 and not edits,'399 one-unit inputs accumulate without premature changes even with long pauses')
-now,edits=turn(1);check(now==3 and edits==[(7,PID,3)],'400th raw unit selects FOLD')
+now,edits=turn(1);check(now==15 and edits[:1]==[(7,PID,15)],'400th raw unit selects SAT (the next DRV type)')
 # Direction, endpoint, external edits and channel changes discard stale travel.
-turn(200);now,_=turn(-200);check(now==3,'direction reversal resets old positive partial movement')
+turn(200);now,_=turn(-200);check(now==15,'direction reversal resets old positive partial movement')
 now,_=turn(-200);check(now==1,'reversed movement reaches CLIP at its own travel threshold')
 for i in range(5):now,edits=turn(-32768)
 check(now==1 and not edits,'CLIP endpoint (no Off) never accumulates a reverse dead zone')
-now,_=turn(400);check(now==3,'forward travel responds immediately after repeated turns at CLIP')
-# A fresh track (stored 0) shows CLIP: left does nothing, right picks FOLD and
+now,_=turn(400);check(now==15,'forward travel responds immediately after repeated turns at CLIP')
+# A fresh track (stored 0) shows CLIP: left does nothing, right picks SAT and
 # keeps INSRT Off.
 set_mode(0);call(u,0x8120264,APP+0xc08+7*0x30,0x1d5,1)
 now,edits=turn(-400);check(now==0 and not edits,'fresh track: left from its CLIP does nothing')
-now,edits=turn(400);check(now==3 and edits==[(7,0x1d5,0),(7,PID,3)],'fresh track: first type pick commits INSRT Off, then FOLD '+str(edits))
+now,edits=turn(400);check(now==15 and edits==[(7,0x1d5,0),(7,PID,15),(7,0x1bb,300),(7,0x1bc,0),(7,0x1bd,1000)],'fresh track: first type pick commits INSRT Off, then SAT and its starting Drive / CURVE / Mix '+str(edits))
 turn(200)
 call(u,0x8120264,APP+0xc08+7*0x30,PID,4)
 u.mem_write(EV,struct.pack('<6I',0x66,0x8148664,7,PID,4,0));call(u,u32(u,0x814bb70),T,EV)

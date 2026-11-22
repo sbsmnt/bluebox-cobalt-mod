@@ -40,9 +40,9 @@ void sat_defs(void *table,unsigned id,unsigned type,const char *label,int min,in
     /* Ordinal 0 is a fresh track's CLIP before INSRT is switched on (was Off);
      * ordinal 2 was SIN, loaded as CLIP. 5..8 are filters, 9..14 the SPEC
      * group: frequency shifter (F1) and resonator bank (F4). */
-    static const char *const insert_modes[]={"CLIP","CLIP","CLIP","FOLD","WRAP","LP","BP","HP","DJ","SHFT","SPRD","RING","HARM","CHRD","BELL"};
+    static const char *const insert_modes[]={"CLIP","CLIP","CLIP","FOLD","WRAP","LP","BP","HP","DJ","SHFT","SPRD","RING","HARM","CHRD","BELL","SAT"};
     ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
-        (table,INS_MODE,"Insert:",insert_modes,15,"insmode");
+        (table,INS_MODE,"Insert:",insert_modes,16,"insmode");
     STOCK_DEF(table,INS_DRIVE,8,"Drive:",0,1000,"insdrive");
     STOCK_DEF(table,INS_TONE,8,"Tone:",0,1000,"instone");
     STOCK_DEF(table,INS_MIX,8,"Mix:",0,1000,"insmix");
