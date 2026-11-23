@@ -7,6 +7,10 @@
   picker's header until the name was edited. The stock populate skipped the
   header write together with the source highlight when the track has no
   input; the header now refreshes on every selection.
+- **Cluster Seed shows its number:** turning the Seed knob (TRACK page 2,
+  Cluster engine) showed SEED all the time. It now shows the seed number
+  while you turn it, or while a mapped MIDI CC or a scene moves it, and
+  SEED again about a second later.
 
 ## 1.3.0-dev.2 (dev, 2026-11-22)
 

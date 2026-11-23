@@ -79,6 +79,28 @@ refresh();check(seedtext()==b'7','a rebinding within the second keeps the number
 w32(u,CLOCK,u32(u,CLOCK)+1100);call(u,S['insert_caption_tick'],PAGES)
 check(seedtext()==b'SEED' and u.mem_read(PAGES+0x38,1)==b'\1','~1 s later the UI tick brings SEED back and asks for a redraw')
 call(u,0x8120264,APP+0xc08+7*0x30,0x1d4,0)
+# Fix: the real encoder path (synth_turn) shows the number, not SEED.
+refresh();w32(u,CLOCK,u32(u,CLOCK)+1100);call(u,S['insert_caption_tick'],PAGES)
+check(seedtext()==b'SEED','Seed back at rest before the encoder turn')
+w32(u,T+0xebbc,1);turn(3,400);w32(u,T+0xebbc,0)
+check(bind(7)==(0x1d4,1) and seedtext()==b'2','turning the Seed encoder shows its number (seed 2) '+str((bind(7),seedtext())))
+call(u,0x8120264,APP+0xc08+7*0x30,0x1d4,1);refresh()
+check(seedtext()==b'2','a rebinding after the encoder turn keeps the number '+str(seedtext()))
+w32(u,CLOCK,u32(u,CLOCK)+1100);call(u,S['insert_caption_tick'],PAGES)
+check(seedtext()==b'SEED','~1 s after the encoder turn SEED returns '+str(seedtext()))
+# A mapped CC: the model changes, then native event 0x66 rebinds with captions.
+def cc_seed(v):
+ call(u,0x8120264,APP+0xc08+7*0x30,0x1d4,v)
+ u.mem_write(EV,struct.pack('<6I',0x66,0x8148664,7,0,0,0));call(u,u32(u,0x814bb70),T,EV)
+cc_seed(11);check(seedtext()==b'12','a CC on Seed shows its number (seed 12) '+str(seedtext()))
+w32(u,CLOCK,u32(u,CLOCK)+400);cc_seed(20);check(seedtext()==b'21','further CC moves follow (seed 21) '+str(seedtext()))
+w32(u,CLOCK,u32(u,CLOCK)+400);u.mem_write(EV,struct.pack('<6I',0x66,0x8148664,7,0,0,0));call(u,u32(u,0x814bb70),T,EV)
+check(seedtext()==b'21','a rebind without a move keeps the number '+str(seedtext()))
+w32(u,CLOCK,u32(u,CLOCK)+1100);call(u,S['insert_caption_tick'],PAGES)
+check(seedtext()==b'SEED','~1 s after the last CC SEED returns '+str(seedtext()))
+u.mem_write(EV,struct.pack('<6I',0x66,0x8148664,7,0,0,0));call(u,u32(u,0x814bb70),T,EV)
+check(seedtext()==b'SEED','an unrelated rebind at rest keeps SEED '+str(seedtext()))
+call(u,0x8120264,APP+0xc08+7*0x30,0x1d4,0)
 call(u,0x8120264,APP+0xc08+7*0x30,0x1c0,engine0);refresh()
 check(hidden(7),'with another engine, the Seed slot stays empty')
 caption=lambda i:bytes(u.mem_read(T+OFFS[i]+0xf8,8)).split(b'\0')[0]

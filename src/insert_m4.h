@@ -138,7 +138,8 @@ void synth_track_b_action(uint8_t *app,unsigned requested,unsigned a,unsigned b)
     ((void (*)(void *,unsigned,unsigned,unsigned))0x08122509u)(app,requested,a,b);
 }
 void synth_send(void *ring,unsigned target,unsigned id,int value);
-static void synth_track_bind(uint8_t *p,unsigned ch) {
+void insert_knob_text(uint8_t *w,unsigned caption);
+static void synth_track_bind(uint8_t *p,unsigned ch,int seed_moved) {
     struct insert_ui *ui=insert_ui();
     static const unsigned ids[2][8]={
         {SYN_ON,SYN_TIMBRE,SYN_HARMONICS,SYN_MORPH,SYN_ATTACK,SYN_CUTOFF,SYN_RELEASE,SYN_RESO}, /* S18: Drone in the B menu */
@@ -182,6 +183,7 @@ static void synth_track_bind(uint8_t *p,unsigned ch) {
         }
         w[0x30]=w[0x2d4]=(uint8_t)!show;
         learn_bind(w,ch,show?id:0,0);
+        if(i==7 && show && id==SYN_SEED && seed_moved)insert_knob_text(w,0);
     }
     synth_button_bind(p,ch,enabled,!page);
     ui->rendered=1;
@@ -238,6 +240,15 @@ void insert_track_bind(uint8_t *p,uint8_t *info) {
                     *(int *)(w+0x98)!=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,id);
             }
     }
+    /* A mapped CC (or a scene) moving the Cluster Seed: the same 0x66
+     * rebind; checked here, before the native bind retargets the knob. The
+     * synth bind then shows the number (insert_knob_text, caption 0). */
+    int seed_moved=0;
+    if(ui->rendered && SYN_UI(ui->active) && (ui->page&1u) && ch<12) {
+        uint8_t *sk=synth_knob(p,7);
+        seed_moved=*(uint16_t *)(sk+0x32)==ch && *(uint16_t *)(sk+0x94)==SYN_SEED && !sk[0x30] &&
+            *(int *)(sk+0x98)!=fw_get((uint8_t *)0x300173d0u+0xc08+ch*0x30,SYN_SEED);
+    }
     gate_track_bind_page(p,info,extra);
     /* S9c: Gate threshold (OUT3's knob, rebound by gate_track_bind) is
      * learnable on TRACK as on MIXER. */
@@ -248,7 +259,7 @@ void insert_track_bind(uint8_t *p,uint8_t *info) {
         for(unsigned i=0;i<7;i++){uint8_t *w=insert_knob(p,i);w[0x30]=w[0x2d4]=1;learn_bind(w,ch,0,0);}
         ui->rendered=1;return;
     }
-    if(SYN_UI(ui->active)){synth_track_bind(p,ch);return;}
+    if(SYN_UI(ui->active)){synth_track_bind(p,ch,seed_moved);return;}
     for(unsigned i=0;i<8;i++) {
         uint8_t *w=insert_knob(p,i);
         if(i<5) {
@@ -686,6 +697,7 @@ static void synth_turn(uint8_t *w,int delta) {
     uint32_t ev[6]={0x6e,0x08148664u,ch,id,(uint32_t)next,0};
     ((void (*)(void *,void *))0x0813a415u)(w,ev);
     ((void (*)(void *,unsigned,int,unsigned))0x08127b85u)(w,id,next,1);
+    if(id==SYN_SEED)insert_knob_text(w,0); /* the number while turning, SEED ~1 s later */
     ui->select_value=next;
 }
 unsigned insert_track_event(uint8_t *p,uint32_t *ev) {
