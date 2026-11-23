@@ -4,7 +4,7 @@
   "firmware": "desktop 1.5.2",
   "size": 1102620,
   "stock_sha256": "38a7944c9eed15dac18e2dac89e7574c9112f60b20324d77a4c26ba522607126",
-  "patched_sha256": "8694c743bb1d5fc1a829b7696637a3966ac3165e5a7c0af59d5b9fba1d3450f5",
+  "patched_sha256": "f82cc5e179f312b52cc8adb8ecdfdda8c5a2909fa88ba91e828487dd51a23a92",
   "patches": [
     {
       "name": "M7 additional code",
@@ -691,6 +691,13 @@
       "offset": 1096556,
       "old": "OS4TCA==",
       "new": "C9QICA=="
+    },
+    {
+      "name": "input picker header name on input-less track",
+      "address": 135470830,
+      "offset": 990958,
+      "old": "I7M=",
+      "new": "07E="
     },
     {
       "name": "M7 phones auto cue code",

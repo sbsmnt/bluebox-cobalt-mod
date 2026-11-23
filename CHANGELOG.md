@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Input picker header name fix:** selecting a track whose Input is None
+  (a synth track, for example) left the previous track's name in the input
+  picker's header until the name was edited. The stock populate skipped the
+  header write together with the source highlight when the track has no
+  input; the header now refreshes on every selection.
+
 ## 1.3.0-dev.2 (dev, 2026-11-22)
 
 - **SAT insert type** in the DRV group (CLIP, SAT, FOLD, WRAP): the per-track

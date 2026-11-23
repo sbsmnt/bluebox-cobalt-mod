@@ -161,6 +161,13 @@ add('MIXER construct sixth Gate button',0x081349dc,branch(0x081349dc,0x0812dadc)
 add('MIXER ignore Main gate edits',0x0814b7d8,struct.pack('<I',0x0812e755),struct.pack('<I',symbols(4)['gate_mix_event']|1))
 add('MIXER shared Gate edit commit',0x0814b7d4,struct.pack('<I',0x0812e469),struct.pack('<I',symbols(4)['gate_mix_local']|1))
 add('TRACK shared Gate edit commit',0x0814bb6c,struct.pack('<I',0x08132e39),struct.pack('<I',dj4['dj_track_local']|1))
+# Native input-picker header kept the previous track's name when the selected
+# track has no input (parameter 0x112 = 0): the populate's early return skipped
+# both the source-row highlight and the header write. Retarget the cbz so the
+# name write still runs (it does not depend on 0x112); the highlight stays
+# correctly skipped. The name is refreshed on every selection, as on the TRACK
+# page's own label. Synth tracks with Input None hit this constantly.
+add('input picker header name on input-less track',0x08131eee,bytes.fromhex('23b3'),bytes.fromhex('d3b1'))
 # Phones Src AUTO: cue bus while a track has its cue on, otherwise Main;
 # the same cue and input masks feed the track header icons (cue_m4.c).
 cuecode=(ROOT/'build'/'cue7.bin').read_bytes()
