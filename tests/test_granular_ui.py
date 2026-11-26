@@ -16,7 +16,7 @@ for id,kind,label,lo,hi,key in EXTRA:
  check(bytes(old.mem_read(a,28))==bytes(28),'granular id '+hex(id)+' was undefined in stock')
  check(struct.unpack('<HB',u.mem_read(a,3))==(id,kind) and cs(u,u32(u,a+4))==label and struct.unpack('<ii',u.mem_read(a+16,8))==(lo,hi) and cs(u,u32(u,a+24))==key,'native granular definition '+hex(id)+' type/label/range/key')
 a=0xc0010000+0x1a0*28;names=u32(u,a+8)
-check(u32(u,a+12)==6 and [cs(u,u32(u,names+4*i)) for i in range(6)]==[b'Warp delay',b'Granular',b'Tape',b'Ducked',b'Reverse',b'Delay'],'Mode uses the native five-choice string enum, like reverb modes')
+check(u32(u,a+12)==9 and [cs(u,u32(u,names+4*i)) for i in range(9)]==[b'Warp delay',b'Granular',b'Tape',b'Ducked',b'Reverse',b'Delay',b'Stasis',b'Flux',b'Spiral'],'Mode uses the native string enum (nine modes with Stasis, Flux and Spiral), like reverb modes')
 u.mem_write(0x24010000,b'\x04');call(u,0x81202b8,SET,0x24010000)
 w32(u,SET,0x24054000);w32(u,0x24054000,0x80dfe21);stub(u,0x80dfe20,lambda u:u.reg_write(UC_ARM_REG_R0,4))
 # Minimal real global get structure with the QUAD-visibility parameter.

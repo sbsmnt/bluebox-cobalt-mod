@@ -665,9 +665,20 @@ int pc_edit_event(void *view,struct pc_event *e) {
     return ((int (*)(void *,void *))0x0813cfb9u)(view,e);
 }
 /* A-button default path 0x08123902 (bl 0x08123818, r1=0) for every page:
- * PROJ opens the scene page; on the scene page A leaves it (back to PROJ). */
+ * PROJ opens the scene page; on the scene page A leaves it (back to PROJ).
+ * G20: with a list open (popup state 18) over FX1's controls (14/15 under
+ * it), A switches the FX1 list between Delay and Spectral (delay_m4.h,
+ * through the FX1 page record in backup SRAM 0x38800ca0). */
+struct fx1_a_hook {uint32_t magic;void *popup;uint32_t open,spectral,flipped;void (*a_flip)(void);};
 void pc_button_a(void *session,unsigned arg) {
     ((void (*)(void *,unsigned))0x08123819u)(session,arg);
+    const uint8_t *st=(const uint8_t *)session+0x739au;
+    if(st[0]==18u && (unsigned)st[1]-14u<2u) {
+        const struct fx1_a_hook *h=(const struct fx1_a_hook *)0x38800ca0u;
+        uint32_t fn=(uint32_t)h->a_flip;
+        if(h->magic==0x46585048u && h->open && fn-0x08000001u<0x200000u)h->a_flip();
+        return;
+    }
     uint32_t *page=sc_field(F_PAGE);
     if(!page)return;
     if(PC_PAGE==PC_PAGE_PROJ)pc_open_scenes();

@@ -79,6 +79,7 @@ void *insert_track_construct(uint8_t *p) {
     void *result=((void *(*)(void *))0x081323b9u)(p);
     backup_enable();PWR_CR1|=1u<<8;
     struct insert_group_ui *g=INS_GROUP_UI;g->magic=0;g->caption_mask=0;
+    FX1_PAGE->magic=0;   /* G19: the FX1 list page record starts clear after every boot */
     uint8_t *w=((uint8_t *(*)(unsigned,unsigned))0x08103129u)(0x1d4u,1);
     if(!w)return result;
     for(unsigned i=0;i<0x1d4u;i++)w[i]=0;

@@ -1,6 +1,6 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.3.0-dev.1 - development build for bluebox desktop firmware 1.5.2**
+**v1.3.0-dev.3 - development build for bluebox desktop firmware 1.5.2**
 
 > This is the `dev` branch: the next version while it is being tested on
 > hardware. The current release is
@@ -34,6 +34,11 @@ here.
   press). A track with the DJ EQ at its centre costs no CPU.
 - **Out 2 clock:** PROJ → B → **Clk Out L / Clk Out R** send analog clock
   pulses (1–24 PPQ) on Out 2 left and right for modular gear.
+- **Spectral FX1 sends:** FX1 → B has a second page, **Spectral**, with
+  **Stasis** (a spectral freeze: snapshots on every Time step, or held by
+  hand with Freeze), **Flux** (a spectral blur that smears the send into a
+  moving wash) and **Spiral** (a frequency-shift delay whose repeats climb
+  or fall in a barber-pole spiral).
 - **Scenes** now also hold each track's insert and DJ EQ settings.
 - **MIDI Learn** works on all of Cobalt's controls: the FX1 delay modes,
   Gazer, master saturation, the Gate threshold, the synth, the inserts and
@@ -44,7 +49,7 @@ here.
   point for PROJ → New.
 
 Thanks to [Milan Wulf](https://github.com/milanwulf) for the DJ EQ ([pull request #2](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/2)) and [Alex Bonhomme](https://github.com/alexbonhomme) for the SAT saturation ([pull request #7](https://github.com/sbsmnt/bluebox-cobalt-mod/pull/7)). Details in
-[Track inserts](#track-inserts), [Synth tracks](#synth-tracks),
+[Track inserts](#track-inserts), [Stasis](#stasis), [Flux](#flux), [Spiral](#spiral), [Synth tracks](#synth-tracks),
 [DJ EQ and filter](#dj-eq-and-filter), [Out 2 clock](#out-2-clock),
 [User Settings](#user-settings-and-the-default-template) and the
 [CHANGELOG](CHANGELOG.md).
@@ -117,7 +122,7 @@ python3 patch_bluebox.py /path/to/cobalt/BLUEBOX.BIN --restore --output /path/to
 
 ### FX1 delay modes
 
-Open FX1 and press **B** to choose the mode. Each mode shows its own
+Open FX1 and press **B** to choose the mode. The list has two pages: **Delay** (Delay, Warp, Granulr, Tape, Ducked, Reverse) and **Spectral** (Stasis, Flux, Spiral). Press **A** while the list is open to switch pages (the header reads **FX1 / Delay** or **FX1 / Spectral**). The list opens on the page of the current mode. Each mode shows its own
 controls on the FX1 panel; switching modes keeps every mode's settings.
 
 #### Delay
@@ -210,6 +215,66 @@ Plays the input backwards in overlapping segments.
 | Pitch | −12 to +12 semitones |
 | To Rev | Send to the FX2 reverb |
 | BEAT | Syncs Segment to the project tempo |
+
+#### Stasis
+
+FX1 → B → Spectral → **Stasis**: a spectral freeze. It takes a snapshot on every **Time** step, and **Freeze** holds one for as long as it's on. Each snapshot is the sound from just before, held as a smooth, endless sustain. It isn't a repeating grain, so there's no loop buzz. It covers about 150 Hz to 16 kHz: lower and higher frequencies are left out (−6 dB at about 141 Hz and 16 kHz), which saves CPU and keeps the hold out of the bass.
+
+| Control | What it does |
+|---|---|
+| Freeze | Captures and holds by hand, as on the delays, whatever Time is set to. Pressing again after Off captures again. The hold starts about 40 ms after the press, with the sound from just before it. While it's on, Snap and Chop pause; letting go returns to them |
+| Time | 1/64, 1/32, 1/16, 1/8 (the default), 1/4, 1/2 or 1 bar. Stasis runs on its own like a synced delay: on the transport's beats while it plays, at the project tempo while it's stopped. At 1/64 a step is shorter than a capture, so Snap takes a new snapshot about every second step; Chop still chops on every 1/64 |
+| Mode | **SNAP**: a new snapshot every step, so the hold always sounds and changes on each boundary (each step holds the sound from just before it). **CHOP**: the hold sounds on every other step and fades out in between, with a new snapshot for each open step |
+| Fade | How fast the hold swells in and dies away, 10 ms to 4 s. In Chop mode, a short Fade gives clean chops |
+| Wandr | 0 is an exact, still hold. The first half of the knob makes the pitch wander, like a slow ensemble, up to about ±50 cents at the middle. The top half scatters the partials on top of that, into a washy, grainy cloud |
+| Tone | Tilts the hold darker (left) or brighter (right), flat in the middle; starts at 3/4 (bright). It changes the colour, not the overall loudness |
+| Level | Level of the hold: about the input level in the middle, up to +6 dB. A soft limit keeps peaks under 0 dBFS |
+| To Rev | Send to the FX2 reverb, so the hold can be reverberated |
+
+**Encoders:** Fade / Time, Wandr / Tone, Level, Mode / To Rev, top / bottom from the left; the Freeze toggle on the left.
+
+**How it sounds:**
+- Held tones keep their exact pitch.
+- A chord holds as steadily as it played.
+- Each held note sounds as it did when it was captured: the hold is built from the 43 ms before.
+
+**Silence:** until its first snapshot, Stasis returns silence (the stock delay doesn't play in this mode).
+
+**CPU:** holding costs about 9k emulator instructions per block (about 11.5k with Wandr up). Snap at 1/32, which captures all the time, averages about 16k, peaking at 22k. The work is spread evenly over each block by its measured cost, so there are no spikes.
+
+#### Flux
+
+FX1 → B → Spectral → **Flux**: a spectral blur, the moving counterpart to Stasis. It smears what you send into a moving wash, like a spectral reverb: each part of the spectrum glides towards the new sound over the Blur time, so notes melt into each other. It covers the same 150 Hz to 16 kHz band as Stasis, on the same engine and memory.
+
+| Control | What it does |
+|---|---|
+| Blur | How long the smear is, 20 ms to 10 s. Short sounds come back quieter and longer. At full, the input is ignored and the blurred sound holds forever: turn it up to full to freeze the wash |
+| Wandr | As on Stasis: the first half wanders the pitch (up to about ±50 cents), the top half scatters the partials into a diffuse wash |
+| Tone | Tilts the wash darker (left) or brighter (right), flat in the middle; starts at 3/4 (bright). It changes the colour, not the overall loudness |
+| Level | Level of the wash: about the input level in the middle (starts at −5 %), up to +6 dB. A soft limit keeps peaks under 0 dBFS |
+| To Rev | Send to the FX2 reverb |
+
+**Encoders:** Blur / Wandr, Tone / Level, To Rev, top / bottom from the left.
+
+**CPU:** Flux analyses and resynthesises all the time, so it costs more than a Stasis hold: about 15.5k emulator instructions per block, peaking at 19k (18k / 22k with Wandr up). With nothing sent and the tail gone, it costs almost nothing.
+
+#### Spiral
+
+FX1 → B → Spectral → **Spiral**: a frequency-shift delay. Every repeat is shifted by the same number of Hz again, so the echoes climb (or fall) in an endless barber-pole spiral, turning metallic and bell-like as they go. It's the stock delay with the SPEC insert's frequency shifter inside the feedback loop, so it needs no FFT.
+
+| Control | What it does |
+|---|---|
+| Time / FEEDB | Delay time and feedback, as on Delay. More feedback, more turns of the spiral |
+| Shift | How far each repeat moves, from about 0.1 Hz to 2.5 kHz: right of centre rises, left falls, the centre is no shift (plain repeats). A few Hz gives slow, phasing spirals; tens to hundreds of Hz turn the repeats inharmonic. The value shows in Hz while you turn it. Starts at about +77 Hz |
+| SPRD | Stereo spread: the left repeats rise and the right ones fall by the same Shift |
+| Drift | Wow and flutter, as on Warp |
+| FILT / CUTOF / WIDTH | The stock filter, inside the loop: keeps long spirals from getting harsh |
+| To Rev | Send to the FX2 reverb |
+| BEAT | Syncs Time to the project tempo, as on Delay |
+
+Spiral has no PING or QUAD: it runs without them, and your PING / QUAD settings come back in the other modes.
+
+**CPU:** about 5k emulator instructions per block more than plain Delay; like Stasis and Flux it skips the Granular history the other delay types keep filling.
 
 ### FX2 Gazer reverb
 

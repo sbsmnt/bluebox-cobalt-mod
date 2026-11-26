@@ -13,7 +13,7 @@ for p in ref['patches']:
  data=base64.b64decode(p['new']);release[p['offset']:p['offset']+len(data)]=data
 release=bytes(release)
 check(hashlib.sha256(release).hexdigest()=='062ce9e3343247c048a4494afa9a385fb2cdf9b08965e1bd5291679c088821ba','comparison is exact uploaded Cobalt 1.0.0 release')
-check(M['version']=='1.3.0-dev.2' and len(M['patches'])==278,'distinct spectral-dj identity and 278 guarded regions (277 + the input-picker header name fix)')
+check(M['version']=='1.3.0-dev.3' and len(M['patches'])==278,'distinct spectral-dj identity and 278 guarded regions (277 + the input-picker header name fix)')
 for name in ('M7 additional code','M7 compressor telemetry code','in-place bank2 PCM24 burst recording loop','in-place bank2 PCM24 burst mono playback loop','in-place bank2 PCM24 burst stereo playback loop'):
  check(next(p for p in ref['patches'] if p['name']==name)==next(p for p in M['patches'] if p['name']==name),'release payload retained exactly: '+name)
 

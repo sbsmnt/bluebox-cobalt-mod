@@ -54,24 +54,82 @@ for mode in [14,15,16,17]:
  check(pages==[1,0,1],'A cycles left/right groups repeatedly in '+('FX1' if mode in [14,15] else 'FX2'))
 
 # Native selector object/list routines, row text, saved selection and emitter.
-u=init();call(u,0x813c004,LIST);u.mem_write(LIST+4,struct.pack('<4i',0,0,320,180))
-for selection in [5,0,1,2,3,4,5]:
+# G17-G19: two pages, Delay (Delay + the five Cobalt delay types) and Spectral
+# (Stasis, Blur) (G21: no page rows); the page of the current mode
+# opens; A switches page while the list is open; header FX1 / Delay|Spectral.
+DELAY_NAMES=[b'Delay',b'Warp delay',b'Granular',b'Tape',b'Ducked',b'Reverse'];DELAY_IDS=[5,0,1,2,3,4]
+PAGE=0x38800ca0
+def rows(u):
+ count=u32(u,LIST+0xc8e4)
+ return [bytes(u.mem_read(LIST+0x150+i*0xc8+0x31,32)).split(b'\0')[0] for i in range(count)],u32(u,LIST+0xc8e8)
+def label(u,a):return bytes(u.mem_read(a+0x65,32)).split(b'\0')[0]   # native label text
+def opened(u,selection):
  call(u,0x8120264,SET,0x1a0,selection)
  u.mem_write(POP+0xd99a,struct.pack('<H',20));call(u,S['dly_selector_fill'],POP)
- count=u32(u,LIST+0xc8e4)
- names=[bytes(u.mem_read(LIST+0x150+i*0xc8+0x31,32)).split(b'\0')[0] for i in range(count)]
- check(count==6 and names==[b'Delay',b'Warp delay',b'Granular',b'Tape',b'Ducked',b'Reverse'],'native FX1 selector contains all five FX1 types, selection '+str(selection))
- check(struct.unpack('<H',u.mem_read(POP+0xd998,2))[0]==0x1a0 and u32(u,LIST+0xc8e8)==(0 if selection==5 else selection+1),'native FX1 selector carries Mode id and saved highlight '+str(selection))
+def header(u):return (label(u,POP+0xf50),label(u,POP+0xff0))
+u=init();call(u,0x813c004,LIST);u.mem_write(LIST+4,struct.pack('<4i',0,0,320,180));u.mem_write(PAGE,bytes(32))
+for selection in [5,0,1,2,3,4,6,7,8,5]:
+ opened(u,selection);names,hl=rows(u)
+ if selection in (6,7,8):
+  check(names==[b'Stasis',b'Flux',b'Spiral'] and hl==selection-6 and header(u)==(b'FX1',b'Spectral'),'G19: a spectral mode opens the Spectral page (header FX1 / Spectral) with its row highlighted '+str(selection))
+ else:
+  check(names==DELAY_NAMES and hl==DELAY_IDS.index(selection) and header(u)==(b'FX1',b'Delay'),'G19: a delay mode opens the Delay page (header FX1 / Delay) with its row highlighted '+str(selection))
+ check(struct.unpack('<H',u.mem_read(POP+0xd998,2))[0]==0x1a0,'native FX1 selector carries Mode id '+str(selection))
 seen=[];stub(u,0x813a414,lambda u:seen.append(bytes(u.mem_read(u.reg_read(UC_ARM_REG_R1),24))))
 call(u,u32(u,0x814c62c),POP,event(u,0x150,2)) # list emits selection in event +12
 check(len(seen)==1 and struct.unpack_from('<H',seen[0])[0]==0x6e and struct.unpack_from('<H',seen[0],8)[0]==20 and struct.unpack_from('<II',seen[0],12)==(0x1a0,1),'native selector emits exactly one Granular change for FX1 through the stock parent path')
 for selected in [2,3,4]:
  seen.clear();call(u,u32(u,0x814c62c),POP,event(u,0x150,selected+1))
  check(len(seen)==1 and struct.unpack_from('<II',seen[0],12)==(0x1a0,selected),'native selector emits distinct saved value for new type '+str(selected))
+seen.clear();call(u,u32(u,0x814c62c),POP,event(u,0x150,6))
+check(seen==[] and rows(u)[0]==DELAY_NAMES,'G21: no page row; rows past the modes are ignored')
+for row,mode in [(0,6),(1,7),(2,8)]:
+ opened(u,6);seen.clear();call(u,u32(u,0x814c62c),POP,event(u,0x150,row))
+ check(len(seen)==1 and struct.unpack_from('<II',seen[0],12)==(0x1a0,mode),'G17: Spectral row %d sets mode %d'%(row,mode))
+opened(u,6);seen.clear();call(u,u32(u,0x814c62c),POP,event(u,0x150,3))
+check(seen==[] and rows(u)[0]==[b'Stasis',b'Flux',b'Spiral'],'G30: the Spectral page has three rows (Stasis, Flux, Spiral) and nothing past them')
+# G20: the real A key (event 12) through the stock dispatch. With a list open
+# the session is in popup state 18, the page under it at +0x739b.
+qs=[];stub(u,0x813c384,lambda u:qs.append(struct.unpack_from('<H',bytes(u.mem_read(u.reg_read(UC_ARM_REG_R1),2)))[0]))
+def press_a(state,under):
+ u.mem_write(MODEL+0x739a,bytes([state,under]));qs.clear();call(u,0x8123862,MODEL,event(u,12))
+opened(u,5);press_a(18,14)
+check(qs==[] and rows(u)[0][:2]==[b'Stasis',b'Flux'] and header(u)==(b'FX1',b'Spectral'),'G20: A with the FX1 list open (state 18 over 14) switches it to Spectral')
+press_a(18,14)
+check(rows(u)[0]==DELAY_NAMES and header(u)==(b'FX1',b'Delay'),'G20: A again switches back to Delay')
+# G26: A also picks the highlighted row, so closing the list keeps it.
+u.mem_write(PAGE,bytes(32));opened(u,2);seen.clear();press_a(18,14)   # fresh record: no row picked yet
+check(len(seen)==1 and struct.unpack_from('<II',seen[0],12)==(0x1a0,6) and rows(u)[1]==0,'G26: from Tape, A highlights and picks Stasis (FX1 mode 6)')
+seen.clear();press_a(18,14)
+check(len(seen)==1 and struct.unpack_from('<II',seen[0],12)==(0x1a0,2) and rows(u)[1]==DELAY_IDS.index(2),'G26: A back to Delay picks Tape again (the row last picked there)')
+opened(u,7);seen.clear();press_a(18,14);press_a(18,14)
+check([struct.unpack_from('<II',x,12) for x in seen]==[(0x1a0,2),(0x1a0,7)],'G26: from Blur, A picks the Delay page row last picked, A again picks Blur back')
+u.mem_write(PAGE,bytes(32));opened(u,5)   # back to the Delay page for the checks below
+press_a(18,15)
+check(rows(u)[0][:2]==[b'Stasis',b'Flux'],'G20: A also switches the list opened from FX1 group 2 (state 18 over 15)')
+press_a(18,15);press_a(18,16)
+check(rows(u)[0]==DELAY_NAMES and qs==[],'G20: A in a list opened from FX2 (over 16) leaves the FX1 list alone')
+press_a(14,0)
+check(qs==[0x164] and rows(u)[0]==DELAY_NAMES,'G20: with the list closed (state 14), A emits the control-group cycle and the list stays')
+pages=[];stub(u,0x812ab7c,lambda u:pages.append(u.reg_read(UC_ARM_REG_R1)))
+u.mem_write(P+0xc3a4,struct.pack('<H',20));w32(u,P+0xc3a0,0);call(u,S['dly_event'],P,event(u,0x164))
+check(pages==[1] and rows(u)[0]==DELAY_NAMES,'G20: the group cycle reaching the FX1 page switches groups, never the list')
+seen.clear();press_a(18,14);m=struct.unpack_from('<II',seen[0],12)[1];opened(u,m)   # the pick sets the mode (stubbed here)
+check(m==6 and rows(u)[0]==[b'Stasis',b'Flux',b'Spiral'],'G26: reopened after switching with A, the list opens on the page of the mode A picked')
+call(u,u32(u,0x814c62c),POP,event(u,0x150,0));opened(u,5)
+check(rows(u)[0]==DELAY_NAMES,'G21: after a mode is picked, the list opens on the page of the current mode again')
+call(u,u32(u,0x814c62c),POP,event(u,0x150,2));press_a(18,14)
+check(rows(u)[0]==[b'Stasis',b'Flux',b'Spiral'],'G24: after moving the selection (a pick, list still open), A still switches to Spectral')
+call(u,u32(u,0x814c62c),POP,event(u,0x150,1));press_a(18,14)
+check(rows(u)[0]==DELAY_NAMES,'G24: after moving the selection on the Spectral page, A still switches back to Delay')
+sp0=u32(u,PAGE+12);fill_fx2=[];stub(u,0x8139aec,lambda u:fill_fx2.append(1))
+u.mem_write(POP+0xd99a,struct.pack('<H',21));call(u,S['dly_selector_fill'],POP);u.mem_write(POP+0xd99a,struct.pack('<H',20));press_a(18,14)
+check(fill_fx2==[1] and u32(u,PAGE+8)==0 and u32(u,PAGE+12)==sp0,'G24: once FX2 has filled the shared popup, A over FX1 does not switch the old FX1 list')
 # FX2 must call the untouched builder with the same arguments and return path.
 orig=[];stub(u,0x8139aec,lambda u:orig.append(u.reg_read(UC_ARM_REG_R0)))
 u.mem_write(POP+0xd99a,struct.pack('<H',21));call(u,S['dly_selector_fill'],POP)
 check(orig==[POP],'FX2 selector delegates to original reverb builder exactly once')
+check(label(u,POP+0xf50)==b'FX2' and label(u,POP+0xff0)==b'Reverb','G19: FX2 gets its header labels back')
 
 # Execute the complete original FX2 fill, comparing actual rows and highlight
 # against stock. Only display blitting remains outside this list fixture.

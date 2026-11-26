@@ -2,15 +2,15 @@
 
 ## Unreleased
 
-- **Input picker header name fix:** selecting a track whose Input is None
-  (a synth track, for example) left the previous track's name in the input
-  picker's header until the name was edited. The stock populate skipped the
-  header write together with the source highlight when the track has no
-  input; the header now refreshes on every selection.
-- **Cluster Seed shows its number:** turning the Seed knob (TRACK page 2,
-  Cluster engine) showed SEED all the time. It now shows the seed number
-  while you turn it, or while a mapped MIDI CC or a scene moves it, and
-  SEED again about a second later.
+- **Spectral FX1 sends:** FX1 → B → A opens a second page, Spectral, with
+  three new FX1 modes. **Stasis** is a spectral freeze (Snap or Chop on every
+  Time step from 1/64 to 1 bar, or a hand-held Freeze), with Fade, Wandr,
+  Tone and Level. **Flux** is a spectral blur (Blur 20 ms to 10 s; full Blur
+  holds the wash). **Spiral** is a frequency-shift delay: the SPEC
+  frequency shifter inside the delay loop, Shift ±2.5 kHz (default about
+  +77 Hz), SPRD, Drift and the stock filter. Tone on Stasis and Flux is
+  level-neutral, and a soft limit keeps their output under 0 dBFS. All
+  controls are saved in the project and can be MIDI-learned.
 
 ## 1.3.0-dev.2 (dev, 2026-11-22)
 

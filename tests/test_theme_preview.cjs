@@ -11,7 +11,7 @@ const ctx={document:{getElementById:id=>elements[id]},URL,Blob,atob};ctx.globalT
 let n=0;function check(c,msg){assert(c,msg);n++;console.log('PASS',msg);}
 function run(s){return vm.runInContext(s,ctx);}
 (async()=>{
-check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.2'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
+check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.3'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
 check(!html.includes("'35.2%'"),'preview header has no numeric CPU percentage (the diagnostic was removed)');
 const views=run('SCREEN_LIST.map(x=>x[0])'),show=v=>run('setView('+JSON.stringify(v)+')');
 check(views.length===27&&!views.includes('delay'),'27 photo-based screens, no invented FX1 Delay page');
@@ -75,7 +75,7 @@ check(html.indexOf('id="features"')>html.indexOf('id="go"')&&html.indexOf('id="f
 for(const t of run('FEATURES.map(f=>f[0])')){elements.features.onclick({target:{closest:s=>s==='[data-f-topic]'?{dataset:{fTopic:t}}:null}});
  const body=elements.featBody.innerHTML;check(body.length>300&&!body.includes('undefined')&&elements.featTabs.innerHTML.includes('data-f-topic="'+t+'" aria-pressed="true"'),'feature tab '+t+' renders');}
 const fclick=(attr,v)=>elements.features.onclick({target:{closest:s=>s==='[data-'+attr+']'?{dataset:attr==='f-topic'?{fTopic:v}:attr==='f-kill'?{fKill:v}:{fSet:v}}:null}});
-check(run('FEATURES.map(f=>f[0]).join()')==='inserts,synth,dj,clock,user','feature tabs: inserts first, then synth, DJ EQ, clock, User Settings');
+check(run('FEATURES.map(f=>f[0]).join()')==='inserts,spectral,synth,dj,clock,user','feature tabs: inserts first, then spectral FX1, synth, DJ EQ, clock, User Settings');
 fclick('f-topic','clock');fclick('f-set','l:3');fclick('f-set','r:0');fclick('f-set','mono:0');fclick('f-set','play:1');
 let fb=elements.featBody.innerHTML;check((fb.match(/class="fpulse"/g)||[]).length===16&&fb.includes('Off: Out 2 R plays audio')&&fb.includes('4 PPQ clock'),'clock: 4 PPQ on L draws 16 pulses in a bar, R Off keeps audio');
 fclick('f-set','play:0');fb=elements.featBody.innerHTML;check(!fb.includes('class="fpulse"')&&fb.includes('no pulses while stopped'),'clock: no pulses while the transport is stopped');
@@ -84,6 +84,11 @@ fclick('f-set','mono:1');fb=elements.featBody.innerHTML;check((fb.match(/class="
 fclick('f-topic','dj');fclick('f-kill','0');check(elements.featBody.innerHTML.includes('KILL LOW'),'DJ EQ: tapping a band kills it');fclick('f-kill','0');check(!elements.featBody.innerHTML.includes('KILL LOW'),'and a second tap brings it back');
 fclick('f-set','bands:1');check(elements.featBody.innerHTML.includes('>Mid<')&&elements.featBody.innerHTML.includes('3 kHz'),'DJ EQ 3 bands: Low, Mid, High split at 300 Hz / 3 kHz');
 fclick('f-topic','inserts');fclick('f-set','grp:2');fclick('f-set','type:4');fclick('f-set','chord:7');check(elements.featBody.innerHTML.includes('DIM on C2'),'inserts: CHRD plots the chosen chord');
+fclick('f-topic','spectral');fclick('f-set','spec:2');check(elements.featBody.innerHTML.includes('<b>Spiral</b>')&&elements.featBody.innerHTML.includes('+77 Hz')&&!/Sieve/.test(html),'spectral FX1: Spiral page shows its Shift default; no Sieve');
+fclick('f-topic','spectral');fclick('f-set','spec:0');fclick('f-set','sm:1');check(elements.featBody.innerHTML.includes('CHOP: the hold sounds')&&(elements.featBody.innerHTML.match(/>S\d</g)||[]).length===4,'spectral FX1: Stasis CHOP draws a hold on every other step');
+fclick('f-set','sm:2');check(elements.featBody.innerHTML.includes('held while Freeze is on'),'spectral FX1: Stasis Freeze draws one hand-held hold');
+fclick('f-set','spec:1');fclick('f-set','fb:2');check(elements.featBody.innerHTML.includes('Blur at full'),'spectral FX1: Flux full Blur holds the wash');
+fclick('f-set','spec:2');fclick('f-set','sp:1');check(elements.featBody.innerHTML.includes('class="fbar2"')&&elements.featBody.innerHTML.includes('FX1 · Spiral'),'spectral FX1: Spiral SPRD draws the right repeats the other way');
 fclick('f-topic','synth');fclick('f-set','src:2');fclick('f-set','dest:2');check(elements.featBody.innerHTML.includes('→ Harm'),'synth: Env routed to Harm');
 // Scenes & MIDI guide under Generate: every topic renders a themed device screen.
 check(html.indexOf('id="guide"')>html.indexOf('id="go"'),'Scenes and MIDI guide sits under Generate');

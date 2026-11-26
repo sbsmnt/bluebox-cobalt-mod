@@ -37,6 +37,7 @@ cobalt|={0x178} # v1.2.0: Phones Src AUTO list
 cobalt|={*range(0x18d,0x19c)} # DJ EQ (PR 2, combo ids)
 cobalt|={0x110,0x111} # Out 2 clock: Clk Out L/R
 cobalt|={0x1e8,0x1e9,0x1ea} # S24: Track Knob 8; S25: User Settings row; S27: Hide _DEFAULT
+cobalt|={0x19c,0x19d,0x19e,0x19f,0x1e6,0x1e7,0x1eb,0x1ec,0x1ed,0x1ee,0x1ef,0x1df,0x1e0} # FX1 Freeze, Blur; G30 Spiral
 check(new[0x178*28:0x179*28]==old[0x178*28:0x178*28+8]+struct.pack('<II',M['symbols']['cue7']['cue_phones_names'],3)+old[0x178*28+16:0x179*28],'Phones Src definition: only the AUTO list and count 3 change')
 C7=M['symbols']['cue7']
 for i,label,key in [(0x110,'clk_label_l','clk_key_l'),(0x111,'clk_label_r','clk_key_r')]:

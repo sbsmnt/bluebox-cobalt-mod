@@ -13,7 +13,7 @@ typedef int (*get_fn)(void *,unsigned);
 #define fw_get ((get_fn)0x08120235u)
 #define fw_clear ((void (*)(void *))0x081384d1u)
 #define fw_append ((void (*)(void *,unsigned,int))0x08138547u)
-static int fx_mode(void *app) {int v=app?fw_get((uint8_t *)app+0xe48,G_MODE):0;return v>=0&&v<=5?v:0;}
+static int fx_mode(void *app) {int v=app?fw_get((uint8_t *)app+0xe48,G_MODE):0;return v>=0&&v<FX1_MODES?v:0;}
 static int gran_mode(void *app) {return fx_mode(app)==1;}
 static int sg_selected(void *app) {return app && fw_get((uint8_t *)app+0xe58,0x155)==SG_STYLE;}
 /* Stock routine applies Beat and QUAD conditions first. Only the delay list
@@ -43,6 +43,18 @@ unsigned dly_parameters(void *app,short *slot,void *list) {
         static const uint16_t ids[]={G_POS,G_SIZE,G_DENSITY,0x4a,G_JITTER,0x39,0x3d,G_FREEZE,G_REVERSE};
         fw_clear(list);
         for(unsigned i=0;i<sizeof(ids)/sizeof(ids[0]);i++)fw_append(list,ids[i],fw_get((uint8_t *)app+0xe48,ids[i]));
+    } else if(fx_mode(app)==FX1_FREEZE_MODE) {
+        /* Freeze, by encoder (list index i: column i/2, even top, odd
+         * bottom): Fade / Time, Drift / Tone, Level, Mode / To Rev; the
+         * Freeze toggle on the left (index 5, as Reverse's BEAT). */
+        static const uint16_t ids[]={F_FADE,F_TIME,F_DRIFT,F_TONE,F_LEVEL,F_FREEZE,F_TMODE,0x3d};
+        fw_clear(list);
+        for(unsigned i=0;i<sizeof(ids)/sizeof(ids[0]);i++)fw_append(list,ids[i],fw_get((uint8_t *)app+0xe48,ids[i]));
+    } else if(fx_mode(app)==FX1_BLUR_MODE) {
+        /* Blur: Blur / Drift, Tone / Level, To Rev (top) */
+        static const uint16_t ids[]={B_BLUR,B_DRIFT,B_TONE,B_LEVEL,0x3d};
+        fw_clear(list);
+        for(unsigned i=0;i<sizeof(ids)/sizeof(ids[0]);i++)fw_append(list,ids[i],fw_get((uint8_t *)app+0xe48,ids[i]));
     } else if(fx_mode(app)==4) {
         uint16_t ids[]={fw_get((uint8_t *)app+0xe48,0x35)?0x34:T_SEGMENT,0x39,T_TONE,0x4a,0x3d,0x35};
         fw_clear(list);
@@ -51,9 +63,15 @@ unsigned dly_parameters(void *app,short *slot,void *list) {
         uint16_t ids[13],id;int values[13],value;unsigned count=0;
         for(unsigned i=0;((unsigned (*)(void *,unsigned,uint16_t *,int *,void *))0x08138505u)(list,i,&id,&value,0);i++) {
             if((id>=G_MODE && id<=T_WILD) || id==T_LOCUT)continue; /* Lo C: Tape inserts it below */
+            if(F_IS_FREEZE(id))continue; /* Freeze's own controls */
+            if(id==S_SHIFT || id==S_SPREAD)continue; /* G30: Spiral maps them from Pitch's slots */
             int mode=fx_mode(app);
             if(mode==2 && (id==0x4a || id==0x4b))continue;
             if(mode==5 && (id==0x4a || id==0x4b || id==0x3a || id==0x3d))continue;
+            /* G30 Spiral: Shift and SPRD take Pitch's knob and toggle */
+            if(mode==FX1_SPIRAL_MODE && (id==0x36 || id==0x37))continue;   /* G31: no PING / QUAD */
+            if(mode==FX1_SPIRAL_MODE && id==0x4a){id=S_SHIFT;value=fw_get((uint8_t *)app+0xe48,id);}
+            if(mode==FX1_SPIRAL_MODE && id==0x4b){id=S_SPREAD;value=fw_get((uint8_t *)app+0xe48,id);}
             if(id==0xcb && mode==2){id=T_DRIVE;value=fw_get((uint8_t *)app+0xe48,id);}
             if(id==0xcb && mode==3){id=T_DUCK;value=fw_get((uint8_t *)app+0xe48,id);}
             if(id==0x3a && mode==3){id=T_RELEASE;value=fw_get((uint8_t *)app+0xe48,id);}
@@ -88,7 +106,7 @@ static void place(uint8_t *p,int slot) {
         if(slot==0x14) {
             if(mode==5 && i>=4 && i<8) {
                 x=x0+(i<6?0:240);y=y0+45-44*(i&1);
-            } else if(mode==4 && i==5){x=x0;y=y0+45;}
+            } else if((mode==4 || mode==FX1_FREEZE_MODE) && i==5){x=x0;y=y0+45;}
             else if(gran && (i==7||i==8)){x=x0;y=y0+45-44*(i-7);}
             else if(!gran && i>=8 && i<12) {
                 x=x0+(i<10?0:240);
@@ -122,6 +140,7 @@ struct fx_ui {
     int32_t density_fraction,density_value;uint8_t *density_widget;
     struct ui_value value[7];
     int32_t log_fraction,log_value;uint8_t *log_widget; /* exp.8 Hz/rate travel */
+    void *title;uint32_t diag_last; /* FX1 title label; spare word (was the G2 Freeze diagnostic) */
 };
 #define UI ((struct fx_ui *)0x38800b00u)
 #define UI_MAGIC 0x4658553bu
@@ -156,7 +175,7 @@ void dly_param_from_m7(uint8_t *app,uint8_t *msg) {
 }
 static int value_index(unsigned id) {
     if(id>=SG_SAT && id<=SG_LOCUT)return (int)(id-SG_SAT);
-    switch(id){case G_POS:case T_DRIVE:case T_DUCK:case T_TONE:return 0;case G_SIZE:case T_SEGMENT:return 1;case G_DENSITY:return 2;case 0x4a:return 3;case G_JITTER:case T_RELEASE:return 4;case 0x33:return 5;case T_HICUT:return 6;case T_LOCUT:return 2;default:return -1;}
+    switch(id){case G_POS:case T_DRIVE:case T_DUCK:case T_TONE:return 0;case G_SIZE:case T_SEGMENT:return 1;case G_DENSITY:return 2;case 0x4a:return 3;case G_JITTER:case T_RELEASE:return 4;case 0x33:return 5;case T_HICUT:return 6;case T_LOCUT:return 2;case S_SHIFT:return 0;default:return -1;}
 }
 static void ui_register(uint8_t *p,int slot) {
     struct fx_ui *u=ui_state();int mode=slot==0x14?fx_mode((void *)0x300173d0u):sg_selected((void *)0x300173d0u)?SG_STYLE:0;
@@ -168,6 +187,7 @@ static void ui_register(uint8_t *p,int slot) {
         for(unsigned i=0;i<7;i++)u->value[i].active=0;
     }
 }
+static float ex2(float x);
 static void label_value(uint8_t *w) {
     unsigned id=*(uint16_t *)(w+0x94);
     int value=*(int *)(w+0x98);
@@ -192,6 +212,21 @@ static void label_value(uint8_t *w) {
             else {*p++='H';*p++='z';}
         }
         *p=0;((void (*)(void *,const char *))0x0813fe4bu)(w+0xa0,text);return;
+    }
+    if(id==S_SHIFT) {
+        /* G30: signed Hz as the DSP maps it (fsh_knob_hz): 0 inside the
+         * centre dead zone, 0.1 Hz .. ~2.5 kHz exponentially outside */
+        float d=((float)value-500.f)*(1.f/500.f),u=(d<0.f?-d:d)-.02f;
+        if(u<=0.f){*p++='0';}
+        else {
+            float hz=.1f*ex2(u*(14.6f/.98f));
+            *p++=d<0.f?'-':'+';
+            unsigned t=(unsigned)(hz*10.f+.5f);
+            if(t<100u){if(t>=10u)*p++=(char)('0'+t/10u);else *p++='0';*p++='.';*p++=(char)('0'+t%10u);}
+            else {unsigned h=(t+5u)/10u;if(h>=1000u)*p++=(char)('0'+h/1000u);if(h>=100u)*p++=(char)('0'+h/100u%10u);*p++=(char)('0'+h/10u%10u);*p++=(char)('0'+h%10u);}
+        }
+        *p++='H';*p++='z';*p=0;
+        ((void (*)(void *,const char *))0x0813fe4bu)(w+0xa0,text);return;
     }
     if(id==0x4a){if(value< -12)value=-12;if(value>12)value=12;
         if(value<0){*p++='-';value=-value;}}
@@ -340,38 +375,99 @@ void dly_choose_action(uint8_t *model,unsigned action,unsigned arg,unsigned extr
     if(action==18 && (model[0x739a]==14 || model[0x739a]==15))arg=0;
     ((void (*)(void *,unsigned,unsigned,unsigned))0x08122509u)(model,action,arg,extra);
 }
-/* Use the native selector list and selection emitter, including highlight and
- * scroll position. FX2 executes its original fill routine without modification. */
-void dly_selector_fill(uint8_t *p) {
-    int delay=*(uint16_t *)(p+0xd99a)==20;
-    /* The popup instance is reused: restore both headers when opening FX2. */
-    ((void (*)(void *,const char *))0x0813820du)(p+0xf50,delay?"FX1":"FX2");
-    ((void (*)(void *,const char *))0x0813820du)(p+0xff0,delay?"Delay":"Reverb");
-    if(*(uint16_t *)(p+0xd99a)!=20) {
-        ((void (*)(void *))0x08139aedu)(p);return;
-    }
+/* G17-G20: the FX1 list in two pages, Delay (Delay, Warp, Granular, Tape,
+ * Ducked, Reverse) and Spectral (Stasis, Blur). The header reads FX1 / Delay
+ * or FX1 / Spectral in the stock labels (as FX2's FX2 / Reverb). G20: A
+ * switches page while the list is open (G21: the page rows are gone). With a list open the session is in
+ * popup state 18 (+0x739a, the page under it at +0x739b) and stock A emits
+ * nothing there, only the default path (0x08123902), which the Scenes patch
+ * already owns (pc_button_a); that calls a_flip through this record. The
+ * record lives in free M4 backup SRAM (0xca0). */
+struct fx1_page {uint32_t magic;uint8_t *popup;uint32_t open,spectral,flipped;void (*a_flip)(void);uint8_t row[2];};   /* row: each page's last picked row (G26) */   /* open: FX1's list was filled last; flipped: switched by hand since the last pick */
+#define FX1_PAGE ((struct fx1_page *)0x38800ca0u)
+#define FX1_PAGE_MAGIC 0x46585048u
+_Static_assert(sizeof(struct fx1_page)<=0x20,"FX1 page record in the free gap 0xc94..0xcc0, below FX_CC");
+static struct fx1_page *fx1_page(void) {
+    backup_enable();PWR_CR1|=1u<<8;
+    struct fx1_page *g=FX1_PAGE;
+    if(g->magic!=FX1_PAGE_MAGIC){g->magic=FX1_PAGE_MAGIC;g->popup=0;g->open=0;g->spectral=0;g->flipped=0;g->a_flip=0;g->row[0]=0;g->row[1]=0;}
+    return g;
+}
+/* Saved mode ids per page row. */
+static const uint8_t fx1_delay_rows[6]={5,0,1,2,3,4},fx1_spectral_rows[3]={FX1_FREEZE_MODE,FX1_BLUR_MODE,FX1_SPIRAL_MODE};
+static unsigned fx1_fill_rows(uint8_t *p) {   /* returns the highlighted row, or ~0u */
+    struct fx1_page *g=fx1_page();
+    unsigned spectral=g->spectral!=0;
+    ((void (*)(void *,const char *))0x0813820du)(p+0xf50,"FX1");
+    ((void (*)(void *,const char *))0x0813820du)(p+0xff0,spectral?"Spectral":"Delay");
     void *list=p+0x1090;
     ((void (*)(void *))0x0813c075u)(list);
     *(uint16_t *)(p+0xd998)=G_MODE;
     const char *const *names=((const char *const *(*)(unsigned))0x08136065u)(G_MODE);
     unsigned count=((unsigned (*)(unsigned))0x08136095u)(G_MODE);
-    if(count>6)count=6;
-    /* Rows use native ordinals; the popup event wrapper preserves saved mode ids. */
-    for(unsigned i=0;i<count;i++) {
-        unsigned id=i?i-1:5;
-        ((void (*)(void *,const char *,unsigned))0x0813c0abu)(list,names[id],i);
+    if(count<8)return ~0u;
+    const uint8_t *rows=spectral?fx1_spectral_rows:fx1_delay_rows;
+    unsigned n=spectral?3u:6u;
+    for(unsigned i=0;i<n;i++)((void (*)(void *,const char *,unsigned))0x0813c0abu)(list,names[rows[i]],i);
+    /* the current mode's row, else the row last picked on this page */
+    int mode=fx_mode((void *)0x300173d0u);unsigned selected=g->row[spectral]<n?g->row[spectral]:0u;
+    for(unsigned i=0;i<n;i++)if((int)rows[i]==mode)selected=i;
+    ((void (*)(void *,unsigned))0x0813c203u)(list,selected);
+    ((void (*)(void *,unsigned))0x0813c2d1u)(list,selected);
+    return selected;
+}
+/* G26: A also picks the highlighted row (as a turn of the encoder does),
+ * so closing the list keeps it: Delay -> A -> Stasis, Tape -> A -> A -> Tape. */
+static void fx1_flip(uint8_t *p) {
+    struct fx1_page *g=fx1_page();
+    g->spectral=!g->spectral;g->flipped=1;
+    unsigned spectral=g->spectral!=0,row=fx1_fill_rows(p);
+    if(row>=(spectral?3u:6u))return;
+    uint32_t ev[6]={0x150u,0,0,spectral?fx1_spectral_rows[row]:fx1_delay_rows[row],0,0};
+    g->row[spectral]=(uint8_t)row;g->flipped=0;
+    ((unsigned (*)(void *,void *))0x08139aa9u)(p,ev);
+}
+/* A in popup state 18 over FX1's controls (pc_button_a): the FX1 list was
+ * filled last and not picked from or replaced by FX2's since. */
+static void fx1_a_press(void) {
+    struct fx1_page *g=fx1_page();
+    uint8_t *p=g->popup;
+    if(g->open && p && *(uint16_t *)(p+0xd99a)==20)fx1_flip(p);
+}
+/* Use the native selector list and selection emitter, including highlight and
+ * scroll position. FX2 executes its original fill routine without modification. */
+void dly_selector_fill(uint8_t *p) {
+    struct fx1_page *g=fx1_page();
+    g->popup=p;g->a_flip=fx1_a_press;
+    if(*(uint16_t *)(p+0xd99a)!=20) {
+        /* The popup instance is reused: restore both headers when opening FX2. */
+        g->open=0;
+        ((void (*)(void *,const char *))0x0813820du)(p+0xf50,"FX2");
+        ((void (*)(void *,const char *))0x0813820du)(p+0xff0,"Reverb");
+        ((void (*)(void *))0x08139aedu)(p);return;
     }
-    int selected=fx_mode((void *)0x300173d0u);
-    selected=selected==5?0:selected+1;
-    ((void (*)(void *,unsigned))0x0813c203u)(list,(unsigned)selected);
-    ((void (*)(void *,unsigned))0x0813c2d1u)(list,(unsigned)selected);
+    /* Opening: the page of the current mode, unless the page was switched
+     * with A since the last pick. */
+    g->open=1;
+    if(!g->flipped)g->spectral=FX1_SPEC_PAGE(fx_mode((void *)0x300173d0u));
+    fx1_fill_rows(p);
 }
 unsigned dly_selector_event(uint8_t *p,uint32_t *ev) {
-    if(*(uint16_t *)ev==0x150 && *(uint16_t *)(p+0xd99a)==20) {
-        uint32_t mapped[6];for(unsigned i=0;i<6;i++)mapped[i]=ev[i];
-        unsigned row=ev[3];if(row>=6)return 0;
-        mapped[3]=row?row-1:5;
-        return ((unsigned (*)(void *,void *))0x08139aa9u)(p,mapped);
+    unsigned type=*(uint16_t *)ev;
+    if(*(uint16_t *)(p+0xd99a)==20) {
+        if(type==0x150) {
+            uint32_t mapped[6];for(unsigned i=0;i<6;i++)mapped[i]=ev[i];
+            unsigned spectral=fx1_page()->spectral!=0,n=spectral?3u:6u;
+            unsigned row=ev[3];
+            if(row>=n)return 0;
+            mapped[3]=spectral?fx1_spectral_rows[row]:fx1_delay_rows[row];
+            fx1_page()->row[spectral]=(uint8_t)row;
+            /* G24: turning the encoder picks on every step with the list
+             * still open, so the list stays open for A (it is closed by
+             * leaving popup state 18, or replaced by FX2's fill). */
+            fx1_page()->flipped=0;
+            return ((unsigned (*)(void *,void *))0x08139aa9u)(p,mapped);
+        }
     }
     return ((unsigned (*)(void *,void *))0x08139aa9u)(p,ev);
 }
@@ -408,8 +504,9 @@ unsigned dly_event(uint8_t *p,uint8_t *ev) {
 /* Patch only the native Delay title setter; FX2's title path remains native.
  * Mode 5 (plain Delay) keeps the stock "Delay" title. */
 void dly_title(void *label,const char *stock) {
+    {struct fx_ui *u=ui_state();u->title=label;u->diag_last=0;}
     ((void (*)(void *,const char *))0x0813fe4bu)(label,
-        fx_mode((void *)0x300173d0u)==0?"Warp":fx_mode((void *)0x300173d0u)==1?"Granulr":fx_mode((void *)0x300173d0u)==2?"Tape":fx_mode((void *)0x300173d0u)==3?"Ducked":fx_mode((void *)0x300173d0u)==4?"RevDly":stock);
+        fx_mode((void *)0x300173d0u)==0?"Warp":fx_mode((void *)0x300173d0u)==1?"Granulr":fx_mode((void *)0x300173d0u)==2?"Tape":fx_mode((void *)0x300173d0u)==3?"Ducked":fx_mode((void *)0x300173d0u)==4?"RevDly":fx_mode((void *)0x300173d0u)==FX1_FREEZE_MODE?"Stasis":fx_mode((void *)0x300173d0u)==FX1_BLUR_MODE?"Flux":fx_mode((void *)0x300173d0u)==FX1_SPIRAL_MODE?"Spiral":stock);
 }
 void sg_title(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813fe4bu)(label,sg_selected((void *)0x300173d0u)?"Gazer":stock);
@@ -476,3 +573,4 @@ void dly_tools_version(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813820du)(label,stock);
     ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.3d");
 }
+

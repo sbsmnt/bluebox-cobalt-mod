@@ -8,14 +8,14 @@ def defs(image):
  u=machine(image);stub(u,0x8103128,lambda u:u.reg_write(UC_ARM_REG_R0,0xc0010000));call(u,0x8134cb8,0);return u
 old=defs(stock);u=defs(patched)
 def cs(u,a):return bytes(u.mem_read(a,64)).split(b'\0')[0]
-for id,typ,label,lo,hi,key in [(0x3a,8,b'Drift:',0,1000,b'dlyflutter'),(0x3d,8,b'To Rev:',0,1000,b'dlysend'),(0x4a,1,b'Pitch:',-12,12,b'dlypitch'),(0x4b,4,b'Pitch:',0,1,b'dlypitchon')]:
+for id,typ,label,lo,hi,key in [(0x3a,8,b'Drift:',0,1000,b'dlyflutter'),(0x3d,8,b'To Rev:',0,1000,b'dlysend'),(0x4a,1,b'Pitch:',-12,12,b'dlypitch'),(0x4b,4,b'Pitch:',0,1,b'dlypitchon'),(0x19e,8,b'Wandr:',0,1000,b'frzdrift'),(0x1ed,8,b'Wandr:',0,1000,b'blurdrift'),(0x1df,8,b'Shift:',0,1000,b'spishift'),(0x1e0,4,b'Sprd:',0,1,b'spispread')]:   # G28: Stasis / Blur WANDR
  a=0xc0010000+id*28
  check(bytes(old.mem_read(a,28))==bytes(28),'desktop parameter id '+hex(id)+' was unused')
  check(struct.unpack('<HB',u.mem_read(a,3))==(id,typ) and cs(u,u32(u,a+4))==label and struct.unpack('<ii',u.mem_read(a+16,8))==(lo,hi) and cs(u,u32(u,a+24))==key,'native definition '+hex(id)+' type/label/range/project key')
 # Execute complete native kind-4 initializer, including the inline replacement.
 u=machine();stub(u,0x8103128,lambda u:u.reg_write(UC_ARM_REG_R0,0xc0010000));u.mem_write(0x24010000,b'\x04');call(u,0x81202b8,0x24020000,0x24010000)
 n=struct.unpack('<H',u.mem_read(0x2402000a,2))[0];actual=[struct.unpack('<H2xi',u.mem_read(0xc0010000+i*8,8)) for i in range(n)]
-check(actual==PARAMS,'complete native delay initializer creates exact 28-entry list and safe defaults (exp.8 adds Tape Lo C Off)')
+check(actual==PARAMS+[(0x19c,0),(0x19d,300),(0x19e,150),(0x19f,750),(0x1e6,500),(0x1e7,3),(0x1eb,0),(0x1ec,500),(0x1ed,0),(0x1ee,750),(0x1ef,475),(0x1df,832),(0x1e0,0)],'complete native delay initializer creates exact 41-entry list and safe defaults (exp.8 adds Tape Lo C Off; Freeze adds Off, Fade 30%, Wandr 15%, Tone 750, Level 500, Time 1/8, SNAP; Blur 500, Wandr 0, Tone 750, Level 475; Spiral Shift 832 (+77 Hz), SPRD off)')
 check(n<struct.unpack('<H',u.mem_read(0x2402000c,2))[0],'delay entries fit native allocation')
 # Actual native encoder page selectors now treat delay like the two-page reverb.
 P=0x24010000;KW=lambda i:P+0xc3b0+i*0x3d0;TW=lambda i:P+0x100b0+i*0x1d4

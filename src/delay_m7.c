@@ -7,12 +7,153 @@
 void g_render_o2(struct granular *g,const float *in_l,const float *in_r,float *out_l,float *out_r,unsigned n);
 void sg_run_o2(struct shoegaze *s,float *l,float *r,unsigned n,float level);
 #include "ring_clear.h"
+#include "spectral_freeze.h"
+#include "spiral_m7.h"
+void sf_process_o2(struct spectral_freeze *s,float *l,float *r,unsigned n);
+void sf_init_o2(struct spectral_freeze *s,struct sf_fast *fast);
+void sf_blur_process_o2(struct spectral_freeze *s,float *l,float *r,unsigned n);
+/* FX1 Freeze state link: M7-only backup-SRAM line 0xe80 (free in this build). */
+#define FRZ_LINK ((volatile struct frz_link *)0x38800e80u)
+_Static_assert(sizeof(struct spectral_freeze)==139592,"Freeze state size (tests/test_granular.py arena accounting)");
+/* Freeze bookkeeping (free backup SRAM 0xea0..0xebf, M7 only): [3] how many
+ * times the state was set up again, [4] blocks before it may be again,
+ * [5] the fast block (DTCM) or 0, [6] the Freeze toggle last block,
+ * [7] unused (was the FRZ22-23 diagnostic). */
+#define FRZ_AUX ((volatile uint32_t *)0x38800ea0u)
+/* The controls, kept outside the state (whose memory the stock firmware
+ * clears once after boot): restored when the state is set up again. Free
+ * backup SRAM 0xec0..0xedf, M7 only. */
+#define FRZ_CTLS 13u
+struct frz_ctl {uint32_t magic;int16_t v[FRZ_CTLS];};   /* Freeze: freeze, fade, drift, tone, level, time, tmode; Blur: blur, drift, tone, level; G30 Spiral: shift, spread */
+#define FRZ_CTL ((volatile struct frz_ctl *)0x38800ec0u)
+#define FRZ_CTL_MAGIC 0x4652433bu
+_Static_assert(sizeof(struct frz_ctl)<=0x20,"Freeze controls in one line below the CPU meter");
+static const uint16_t frz_ids[FRZ_CTLS]={F_FREEZE,F_FADE,F_DRIFT,F_TONE,F_LEVEL,F_TIME,F_TMODE,B_BLUR,B_DRIFT,B_TONE,B_LEVEL,S_SHIFT,S_SPREAD};
+static void frz_record(unsigned id,int value) {
+    volatile struct frz_ctl *c=FRZ_CTL;
+    if(c->magic!=FRZ_CTL_MAGIC) {
+        static const int16_t def[FRZ_CTLS]={0,300,150,750,500,3,0,500,0,750,475,832,0};   /* G30: Time 1/8 (G26 default), Tone 750 (G35), Flux Level 475 (G34), Shift 832 (G33: +77 Hz), Spread off */
+        for(unsigned i=0;i<FRZ_CTLS;i++)c->v[i]=def[i];
+        c->magic=FRZ_CTL_MAGIC;
+    }
+    for(unsigned i=0;i<FRZ_CTLS;i++)if(frz_ids[i]==id)c->v[i]=(int16_t)value;
+}
+/* Set the state up (boot, or again after it was found cleared), with the
+ * fast block if there is one and the controls last received. */
+static void frz_setup(struct spectral_freeze *s) {
+    sf_init_o2(s,(struct sf_fast *)FRZ_AUX[5]);
+    if(FRZ_CTL->magic==FRZ_CTL_MAGIC) {
+        for(unsigned i=0;i<FRZ_CTLS;i++)sf_event(s,frz_ids[i],FRZ_CTL->v[i]);
+        s->last_freeze=(float)s->freeze;   /* a Freeze left On needs a new press */
+    }
+}
+/* Timed Freeze from the transport (as the Out 2 clock reads it): ctx[0] is
+ * the transport, +0x30 its tick at the block start (960 per quarter note),
+ * +0x38 nonzero while playing, 0x08058910 turns a tick into a sample offset
+ * from the block start. With Time set it runs on its own (auto_on), the
+ * Freeze toggle not needed: on the transport's beats while it plays, at the
+ * project tempo from its own clock while stopped. Time Off: the toggle works
+ * by hand. Step: a capture before every step boundary, so the
+ * new snapshot takes over on the beat. Gate: the hold sounds on even steps
+ * and fades out on odd ones; its capture runs during the closed step. */
+/* G17: 1/64 (60 ticks) is shorter than a capture plus a hop (FRZ_LEAD, about
+ * 64 ms): there the captures run back to back and each new snapshot takes
+ * over at the next boundary it reaches, every second step or so. Gate still
+ * opens and closes on every 1/64. */
+static const uint16_t frz_ticks[F_TIMES]={0,60,120,240,480,960,1920,3840};
+#define FRZ_LEAD (SF_CAPTURE_SAMPLES+SF_H+128u)   /* capture (~1.2k samples) + one hop for the new frame */
+static unsigned frz_mod(int64_t pos,unsigned step) {
+    uint64_t a=pos<0?(uint64_t)-pos:(uint64_t)pos;
+    unsigned hi=(unsigned)(a>>32)%step,lo=(unsigned)a%step;
+    unsigned r=(hi*((0xffffffffu%step+1u)%step)+lo)%step;
+    return pos<0 && r?step-r:r;
+}
+static int frz_offset(uint8_t *tr,int64_t t){return ((int (*)(void *,const int64_t *))0x08058911u)(tr,&t);}
+static void frz_clock_timed(struct spectral_freeze *f,void *ctx,unsigned n) {
+    f->gate_closed=0;f->auto_on=0;
+    if(!f->time || f->time>=(int)F_TIMES)return;
+    uint32_t t0=*(uint32_t *)ctx;
+    if(!((t0>=0x20000000u && t0<0x2001ffc0u) || (t0>=0x24000000u && t0<0x2407ffc0u) || (t0>=0x30000000u && t0<0x30047fc0u)))return;
+    uint8_t *tr=(uint8_t *)t0;
+    f->auto_on=1;                        /* Time set: runs on its own, no press needed */
+    int64_t pos=*(const int64_t *)(tr+0x30);
+    unsigned step=frz_ticks[f->time];
+    if(tr[0x38]) {
+        /* playing: on the transport's own beats */
+        unsigned r=frz_mod(pos,step);
+        if(f->tmode)f->gate_closed=frz_mod(pos,2u*step)>=step;
+        int64_t t=pos+(r?(int64_t)(step-r):0);
+        if(f->tmode && frz_mod(t,2u*step))t+=step;
+        int off=frz_offset(tr,t);
+        if(off<=(int)FRZ_LEAD && (uint32_t)t!=f->trig_tick){f->trigger=1;f->trig_tick=(uint32_t)t;}
+        f->fpos=0;f->fk=0;f->ftrig=0;
+        return;
+    }
+    /* stopped: the same steps at the project tempo, from a free-running
+     * clock (samples per quarter from the tempo, as the stock conversion
+     * gives it while stopped too); it starts on an open step */
+    int spq=frz_offset(tr,pos+960)-frz_offset(tr,pos);
+    if(spq<9600 || spq>144000)spq=24000;         /* 20..300 BPM, else 120 */
+    uint32_t len=(uint32_t)spq*step/960u,unit=f->tmode?2u*len:len;
+    while(f->fpos>=unit){f->fpos-=unit;f->fk++;}
+    if(f->tmode)f->gate_closed=f->fpos>=len;
+    uint32_t to=unit-f->fpos;                    /* samples to the next (opening) boundary */
+    if(to<=FRZ_LEAD && f->ftrig!=f->fk+1u){f->trigger=1;f->ftrig=f->fk+1u;}
+    f->fpos+=n;
+}
+/* G17: the Freeze toggle works as on the delays, whatever Time is: a press
+ * captures at once and holds, Step / Gate are paused while it is on, and
+ * letting go returns to the timed Freeze (or to silence with Time Off).
+ * FRZ_AUX[6]: the toggle as seen last block (a press is its rising edge). */
+static void frz_clock(struct spectral_freeze *f,void *ctx,unsigned n) {
+    unsigned man=f->freeze!=0,was=FRZ_AUX[6]!=0u,trig=f->trigger;
+    FRZ_AUX[6]=man;
+    frz_clock_timed(f,ctx,n);      /* keeps the step clock running underneath */
+    if(man){f->gate_closed=0;f->auto_on=0;f->trigger=trig|(was?0u:2u);}   /* G27: 2 = a press, restarts a running capture */
+}
+/* The allocation: the state plus at least 4 bytes for the tail canary;
+ * G30: then Spiral's state (the modes never run together). */
+#define FRZ_SPI_OFF ((sizeof(struct spectral_freeze)+4u+31u)&~31u)
+#define FRZ_BYTES (FRZ_SPI_OFF+sizeof(struct spiral_state))
+static struct spectral_freeze *frz_state(void) {
+    struct spectral_freeze *s=FRZ_LINK->magic==FRZ_LINK_MAGIC?FRZ_LINK->state:0;
+    return s && s->magic==SF_MAGIC?s:0;
+}
 void rc_step_o2(struct ring_clear *c,uint32_t *lines,unsigned skipping);
 /* Tape Lo C state: free backup SRAM between the Granular state (0x00..0xab)
  * and the Shoegaze link at 0x100. */
 #define XL_STATE ((struct x_locut *)0x388000b0u)
 #include "delay_types.h"
 _Static_assert(0xb0+sizeof(struct x_locut)<=0x100,"Tape Lo C state below the Shoegaze link");
+/* G30 Spiral: its state after the Freeze state (any mode may use the link). */
+static struct spiral_state *spi_state(void) {
+    uint8_t *s=FRZ_LINK->magic==FRZ_LINK_MAGIC?(uint8_t *)FRZ_LINK->state:0;
+    return s?(struct spiral_state *)(s+FRZ_SPI_OFF):0;
+}
+static int spi_knob(void){return FRZ_CTL->magic==FRZ_CTL_MAGIC?FRZ_CTL->v[11]:832;}
+/* G31: Spiral has no PING / QUAD. Their native handlers are inline in the
+ * delay body and also set the line lengths, so Spiral posts PING 0 / QUAD 0
+ * into this block's own queue (the stock post at 0x0804e1e8, as the UI's
+ * events arrive) and, on leaving, the values last received: the saved
+ * settings are never touched. FRZ_LINK pad[2]: bit 8 known, bit 0 PING,
+ * bit 1 QUAD. */
+static void spi_keep(unsigned id,int value) {
+    uint32_t k=FRZ_LINK->pad[2];
+    if(!(k&0x100u))k=0x100u;
+    uint32_t bit=id==0x36?1u:2u;
+    FRZ_LINK->pad[2]=value?k|bit:k&~bit;
+}
+static void spi_ping_quad(uint8_t *obj,void *q,int spiral) {
+    uint32_t k=FRZ_LINK->pad[2];
+    unsigned ping=spiral?0u:k&1u,quad=spiral?0u:(k>>1)&1u;
+    if(!spiral && !(k&0x100u))return;
+    if(obj[0x274]==ping && obj[0x276]==quad)return;
+    if(spiral && !(k&0x100u))FRZ_LINK->pad[2]=0x100u|(obj[0x274]?1u:0u)|(obj[0x276]?2u:0u);   /* never received: keep what it was */
+    uint32_t a[6]={0x39,0,*(uint32_t *)(obj+0x18),0x36,ping,0},b[6]={0x39,0,*(uint32_t *)(obj+0x18),0x37,quad,0};
+    ((void (*)(void *,void *))0x0804e1e9u)(q,a);
+    ((void (*)(void *,void *))0x0804e1e9u)(q,b);
+}
+static float spi_sign(int ch){return !ch && FRZ_CTL->magic==FRZ_CTL_MAGIC && FRZ_CTL->v[12]?-1.f:1.f;}   /* SPRD: the right channel (ch 0) the other way */
 /* Reverse renderer and its feedback injection, built at -O2 (dsp_fast_m7.c). */
 void x_reverse_o2(struct delay_types *x,struct granular *g,float *l,float *r,unsigned n,unsigned wr0,unsigned valid0);
 void x_reverse_input_o2(struct delay_types *x,struct granular *g,float *l,float *r,unsigned n);
@@ -83,11 +224,12 @@ struct dly_shared {
     float stash[2][D_MAXN];
     float p_ratio, p_ratio2;     /* 2^(semitones/12), and squared for PING's line C; 1 = off */
     float p_ph[6];               /* per line: samples since its last jump */
+    uint32_t live;               /* G30: this block's line reads need work (drift, pitch, Tape, Spiral) */
 };
 #define DS ((struct dly_shared *)0x38800d00u)   /* reserved below the CPU meter at 0xf00 */
 #define DS_MAGIC 0x44454c35u
 
-_Static_assert(0xd00 + sizeof(struct dly_shared) <= 0xf00, "delay state below the CPU meter");
+_Static_assert(0xd00 + sizeof(struct dly_shared) <= 0xe60, "delay state below the Freeze link line");
 
 static struct dly_shared *dly_state(void)
 {
@@ -134,11 +276,14 @@ static void dly_prepare(struct dly_shared *d, unsigned n)
     d->m1 = fa > 0.f ? fa * (1.f + 0.6f * s + 0.4f * d->fl_noise) : 0.f;
     if (d->m0 <= 0.f && d->m1 > 0.f) d->m0 = d->m1;                   /* drift just turned on: no jump from 0 */
 
-    int st = d->pitch_on && XS->mode!=2 ? d->pitch : 0;
+    int st = d->pitch_on && XS->mode!=2 && XS->mode!=FX1_SPIRAL_MODE ? d->pitch : 0;
     if (st < -12) st = -12;
     if (st > 12) st = 12;
     d->p_ratio = rv_exp2((float)st * (1.f / 12.f));
     d->p_ratio2 = d->p_ratio * d->p_ratio;
+    /* G30: one flag for dly_read's early return (x_prepare ran first) */
+    d->live = d->m0 > 0.f || d->m1 > 0.f || (d->pitch_on && d->pitch) ||
+              (XS->magic==X_MAGIC && (XS->tape0>0.f || XS->tape1>0.f || XS->mode==FX1_SPIRAL_MODE));
 }
 
 /* the line's sample m samples older than the stock read's (m < 0: newer), linear interpolation */
@@ -162,6 +307,7 @@ void dly_read(uint32_t *line, void *bus, int ch)
     if (d->magic != DS_MAGIC || !d->obj)
         return;
     if(XS->magic==X_MAGIC && XS->mode==5)return;
+    if(!d->live)return;   /* G30: nothing to do on this block's reads */
     const float *buf = (const float *)line[0];
     int32_t li = (int32_t)((uint8_t *)line - (d->obj + 0x30));
     if (!size || !buf || li < 0 || li > 5 * 0x1c || li % 0x1c)
@@ -175,7 +321,7 @@ void dly_read(uint32_t *line, void *bus, int ch)
     /* Read native flags here, after the native queue has applied PING/QUAD.
      * Split WILD over serial PING stages, keeping one effective curve per loop. */
     int split=d->obj[0x274] && (li<2 || (d->obj[0x276] && li<4));
-    if (!(d->m0 > 0.f || d->m1 > 0.f || (d->pitch_on && d->pitch)) && !tape) return;
+    struct spiral_state *spi=XS->mode==FX1_SPIRAL_MODE?spi_state():0;   /* G30 */
     float *l, *r;
     fw_stereo(bus, &l, &r);
     float *out = ch ? l : r;
@@ -198,6 +344,7 @@ void dly_read(uint32_t *line, void *bus, int ch)
     if (!flutter && !pitch) {
         d->p_ph[li] = 0.f;
         if(tape)x_tape(XS,out,n,(unsigned)li,split);
+        if(spi)spi_line(spi,out,n,(unsigned)li,spi_sign(ch));
         return;
     }
     float m = flutter ? d->m0 : 0.f, dm = flutter ? (d->m1 - d->m0) / (float)n : 0.f;
@@ -217,6 +364,7 @@ void dly_read(uint32_t *line, void *bus, int ch)
     }
     d->p_ph[li] = ph;
     if(tape)x_tape(XS,out,n,(unsigned)li,split);
+    if(spi)spi_line(spi,out,n,(unsigned)li,spi_sign(ch));
 }
 
 /* Native input gate returns a bus containing the gated input (not a gain
@@ -253,6 +401,12 @@ static void dly_body_events(uint8_t *obj,void *ctx,struct bus *b) {
     b->silent=silent;obj[0x80]=flag;
     gate[0x14]=g14;gate[0x15]=g15;*(uint32_t *)(gate+0x18)=g18;
 }
+/* Stasis / Blur for one block, kept out of line (the delay modes' code is
+ * unchanged). */
+static void __attribute__((noinline)) frz_run(struct spectral_freeze *frz,void *ctx,float *l,float *r,unsigned n) {
+    if(XS->mode==FX1_BLUR_MODE)sf_blur_process_o2(frz,l,r,n);
+    else{frz_clock(frz,ctx,n);sf_process_o2(frz,l,r,n);}
+}
 
 /* Replaces the desktop delay process slot (0x0806b014, stock FUN_08053178). */
 unsigned dly_process(uint8_t *obj, void *ctx)
@@ -272,11 +426,20 @@ unsigned dly_process(uint8_t *obj, void *ctx)
         if (ev.id == 0xca) filt_event=1;
         if(GS->magic==G_MAGIC && GS->owner==obj)g_event(GS,ev.id,ev.value);
         x_event(XS,ev.id,ev.value);
+        if(ev.id==S_SHIFT || ev.id==S_SPREAD)frz_record(ev.id,ev.value);   /* G30 Spiral */
+        if(ev.id==0x36 || ev.id==0x37)spi_keep(ev.id,ev.value);            /* G31: the saved PING / QUAD */
+        if(F_IS_FREEZE(ev.id)){frz_record(ev.id,ev.value);struct spectral_freeze *f=frz_state();if(f)sf_event(f,ev.id,ev.value);}
         if (ev.id == D_FLUTTER) d->flutter = ev.value;
         else if (ev.id == D_SEND) d->send = ev.value;
         else if (ev.id == D_PITCH) d->pitch = ev.value;
         else if (ev.id == D_PITCHON) d->pitch_on = ev.value;
     }
+    /* Leaving Freeze mode stops it; pad[0] marks a Freeze that ran, so other
+     * modes pay one flag read per block. */
+    if(!FX1_SPECTRAL(XS->mode) && FRZ_LINK->pad[0]){struct spectral_freeze *f=frz_state();if(f)sf_stop(f);FRZ_LINK->pad[0]=0;}
+    /* G30: pad[1] marks a Spiral that ran; leaving it clears its lines */
+    if(XS->mode!=FX1_SPIRAL_MODE && FRZ_LINK->pad[1]){struct spiral_state *sp=spi_state();if(sp)spi_prepare(sp,0,0,0);spi_ping_quad(obj,q,0);FRZ_LINK->pad[1]=0;}
+    if(XS->mode==FX1_SPIRAL_MODE)spi_ping_quad(obj,q,1);
     if(XS->mode==5) {
         d->stash_n=0;d->send_g=0.f;d->m0=d->m1=0.f;
         d->p_ratio=d->p_ratio2=1.f;
@@ -302,6 +465,14 @@ unsigned dly_process(uint8_t *obj, void *ctx)
     float input[2][D_MAXN];
     int gran=GS->magic==G_MAGIC && GS->owner==obj && GS->buffer;
     struct bus *ib=(struct bus *)bus;
+    /* G14: Freeze and Blur never read Granular's history, so stop priming it
+     * (and copying its input) once Granular and Reverse have faded out:
+     * about 2.7k instructions a block. Emptied, so a later Granular builds up
+     * from fresh input and never plays audio from before. Its grains are
+     * already idle here. The mode is tested first: other modes pay one
+     * compare (Delay Normal's budget). G32: Spiral too (the plain delay
+     * lines, no grains). */
+    if(__builtin_expect(FX1_SPEC_PAGE(XS->mode),0) && gran && !GS->mode && !(GS->fade>0.f) && XS->rev_mix==0.f){GS->valid=0;gran=0;}
     if(gran || XS->mode==3 || XS->duck_mix>0.f)for(unsigned i=0;i<n;i++) {
         input[0][i]=ib->silent?0.f:ib->l[i];
         input[1][i]=ib->silent?0.f:(ib->stereo?ib->r[i]:ib->l[i]);
@@ -317,12 +488,35 @@ unsigned dly_process(uint8_t *obj, void *ctx)
     XS->capture_n=gated?n:0;XS->capture_l=input[0];XS->capture_r=input[1];
     if(gated)for(unsigned i=0;i<n;i++)input[0][i]=input[1][i]=0.f;
     x_prepare(XS,n);
+    if(XS->mode==FX1_SPIRAL_MODE) {
+        /* G30 Spiral: this block's rotation; pad[1] marks it ran */
+        struct spiral_state *sp=spi_state();
+        if(sp){spi_prepare(sp,1,spi_knob(),n);FRZ_LINK->pad[1]=1;}
+    }
     unsigned wr0=gran?GS->wr:0,valid0=gran?GS->valid:0;
     dly_prepare(d, n);
     /* Fully faded-in Granular replaces the whole delay output, so the native
      * rings, filters and line reads are skipped. Its events still run: see
      * dly_body_events. Any fade, gated capture or other mode runs it fully. */
     int skip=gran && GS->mode && XS->mode==1 && !gated && GS->fade==1.f && ib->l;
+    /* Freeze (mode 6) and Blur (7) replace the whole delay output like a
+     * fully faded-in Granular: native events only, rings cleared in the
+     * background. They share one state. */
+    struct spectral_freeze *frz=FX1_SPECTRAL(XS->mode)?frz_state():0;
+    /* G8: on device the state's memory is found cleared some time after boot
+     * (marker and tail canary zero, cursor never rewound). With the link
+     * intact, set the state up again; count it, at most every 750 blocks. */
+    if(FX1_SPECTRAL(XS->mode)) {
+        if(FRZ_AUX[4])FRZ_AUX[4]--;
+        struct spectral_freeze *st=FRZ_LINK->state;
+        if(!frz && !FRZ_AUX[4] && FRZ_LINK->magic==FRZ_LINK_MAGIC && (uint32_t)st>=0xc0000000u && (uint32_t)st<0xc3400000u) {
+            frz_setup(st);
+            FRZ_AUX[3]++;FRZ_AUX[4]=750u;
+            frz=frz_state();
+        }
+        if(frz)sf_engine(frz,(unsigned)XS->mode);
+    }
+    if(frz && ib->l)skip=1;
     if(skip)dly_body_events(obj,ctx,ib);
     else if(XS->mode==2) {
         /* exp.8: Tape hides FILT/Cutoff and bypasses the native filter (its
@@ -340,6 +534,17 @@ unsigned dly_process(uint8_t *obj, void *ctx)
     /* Native feedback writes are complete. Makeup touches the return only. */
     if(n && (XS->tape0>0.f || XS->tape1>0.f) && !((struct bus *)bus)->silent) {
         float *l,*r;fw_stereo(bus,&l,&r);x_tape_return(XS,l,r,n);
+    }
+    if(frz && ib->l) {
+        /* The send is still on the bus (the native body did not run). */
+        float *l,*r;fw_stereo(bus,&l,&r);
+        if(ib->silent){for(unsigned i=0;i<n;i++)l[i]=r[i]=0.f;ib->silent=0;}
+        frz_run(frz,ctx,l,r,n);
+        FRZ_LINK->pad[0]=1;
+    } else if(FX1_SPECTRAL(XS->mode) && n && ib->l && !ib->silent) {
+        /* No Freeze state (arena full): silent rather than the stock delay. */
+        float *l,*r;fw_stereo(bus,&l,&r);
+        for(unsigned i=0;i<n;i++)l[i]=r[i]=0.f;
     }
     if(gran && (XS->mode==4 || XS->rev_mix!=0.f))x_reverse_input_o2(XS,GS,input[0],input[1],n);
     if(gran) {
@@ -431,6 +636,31 @@ static void fsh_allocate(void) {
         }
     }
 }
+/* FX1 Freeze: one spectral freeze instance (about 205 KB) from the same
+ * boot-time arena, after the other blocks. Without it Freeze plays silent. */
+static void frz_allocate(void) {
+    FRZ_LINK->magic=0;FRZ_LINK->state=0;
+    FRZ_AUX[3]=FRZ_AUX[4]=FRZ_AUX[5]=FRZ_AUX[6]=0;
+    /* The hold's FFT buffer and tables (36 KB) in DTCM when the stock pool
+     * there (0x20000000 + used, counter 0x240006c0, limit 0x1f800) keeps at
+     * least 16 KB for later stock requests; else they stay in SDRAM. */
+    {
+        uint32_t used=*(volatile uint32_t *)0x240006c0u,need=(sizeof(struct sf_fast)+15u)&~15u;
+        if(used<0x1f800u && need+0x4000u<=0x1f800u-used) {
+            FRZ_AUX[5]=0x20000000u+used;*(volatile uint32_t *)0x240006c0u=used+need;
+        }
+    }
+    uint32_t bytes=FRZ_BYTES;
+    uint32_t cursor=*(volatile uint32_t *)0x24000004u;
+    uint32_t limit=*(volatile uint32_t *)0x24000000u;
+    if(cursor>=0xc0000000u && cursor<=limit && bytes<=limit-cursor && cursor<=0xc3400000u-bytes) {
+        struct spectral_freeze *s=((void *(*)(unsigned))0x080412a5u)(bytes);
+        if(s) {
+            frz_setup(s);
+            FRZ_LINK->state=s;FRZ_LINK->magic=FRZ_LINK_MAGIC;
+        }
+    }
+}
 /* Stock styles are retained; the experimental style has independent state. */
 unsigned delay_reverb_process(uint8_t *obj,void *ctx) {
     dly_send_into(obj,ctx);
@@ -459,5 +689,6 @@ unsigned dly_construct(uint8_t *obj) {
     rc_reset(RC,obj);
     sg_allocate();
     fsh_allocate();
+    frz_allocate();
     return result;
 }

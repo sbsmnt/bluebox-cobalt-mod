@@ -68,7 +68,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;background:var(--panel2);border:1
 </style>
 <header><h1>Bluebox Cobalt mod <span class="chip">dev</span></h1><p class="lede">Unofficial effects &amp; theme mod for bluebox desktop firmware 1.5.2 · v__VERSION__</p>
 <div class="chips"><span class="chip">Runs locally · no network</span><span class="chip">Original firmware never leaves your device</span><a class="chip jump" href="#features">New in v1.3 ›</a><a class="chip jump" href="#guide">Scenes and MIDI guide ›</a></div>
-<p class="notice">Development build from the <code>dev</code> branch: the next Cobalt version while it is tested on hardware. It adds synth tracks, track inserts (DRV, FLTR, SPEC), the DJ EQ and filter, an analog clock on Out 2 and User Settings to Cobalt v1.2. TOOLS shows <b>Cblt 1.3d</b>. Keep your working firmware and back up your projects. For the current release use v1.2.0.</p></header>
+<p class="notice">Development build from the <code>dev</code> branch: the next Cobalt version while it is tested on hardware. It adds synth tracks, track inserts (DRV, FLTR, SPEC), spectral FX1 sends (Stasis, Flux, Spiral), the DJ EQ and filter, an analog clock on Out 2 and User Settings to Cobalt v1.2. TOOLS shows <b>Cblt 1.3d</b>. Keep your working firmware and back up your projects. For the current release use v1.2.0.</p></header>
 <section><h2><span class="step">1</span>Firmware</h2><div class="drop" id="dropzone" role="button" tabindex="0" aria-label="Choose the original BLUEBOX.BIN"><strong>Drop BLUEBOX.BIN here</strong><span class="muted">or click to browse</span><span id="fileName"></span></div><input id="file" type="file" accept=".bin,.BIN" hidden aria-label="Original firmware"><label style="display:block;margin-top:12px"><input id="restore" type="checkbox"> Restore the original from a Cobalt __VERSION__ firmware file</label><small>Restore detects this version’s theme colours automatically.</small></section>
 <section><h2><span class="step">2</span>Theme</h2>
 <div class="studio"><div class="controls">
@@ -273,7 +273,7 @@ function recallText(){const b=G.bank,p=G.pc,o=G.from1?1:0;
  return `<p class="gresult">Bank Select <b>${b+o}</b> loads the project with <b>Bank # ${b+1}</b>; Program Change <b>${p+o}</b> then recalls <b>scene ${p+1}</b>.</p>`;}
 // ---- New in v1.3: interactive feature guide (diagrams only, no device screens).
 const FT=(rows,head)=>'<table class="gtable">'+(head?'<tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr>':'')+rows.map(r=>'<tr>'+r.map((c,i)=>(i?'<td>':'<td><b>')+c+(i?'</td>':'</b></td>')).join('')+'</tr>').join('')+'</table>';
-const FS={topic:'inserts',grp:0,type:0,chord:0,eng:0,src:0,dest:[1,0,4],page:0,bands:0,p4:0,p3:0,kill:[0,0,0,0],l:3,r:1,mono:0,play:1,tpl:0};
+const FS={topic:'inserts',spec:0,sm:0,fb:1,sh:0,sp:0,grp:0,type:0,chord:0,eng:0,src:0,dest:[1,0,4],page:0,bands:0,p4:0,p3:0,kill:[0,0,0,0],l:3,r:1,mono:0,play:1,tpl:0};
 const fseg=(key,opts,cur)=>`<div class="seg" role="group">${opts.map((o,i)=>`<button type="button" data-f-set="${key}:${i}" aria-pressed="${i===cur}">${o}</button>`).join('')}</div>`;
 const fsvg=(w,h,label,body)=>`<svg class="gflow" viewBox="0 0 ${w} ${h}" role="img" aria-label="${label}">${body}</svg>`;
 const ftext=(x,y,s,cls='',anchor='middle')=>`<text class="${cls}" x="${x}" y="${y}" text-anchor="${anchor}">${s}</text>`;
@@ -352,12 +352,70 @@ function clockRouting(){const l=PPQN[FS.l],r=PPQN[FS.r],mono=FS.mono===0;let b='
  return fsvg(660,170,'Out 2 clock routing',b);}
 // ---- User Settings template flow, MIDI Learn
 function tplFlow(){return fsvg(660,120,'DEFAULT template',node(10,30,180,60,'DEFAULT','your template project','lit')+wire('M190 60 L 250 60',true)+node(250,30,160,60,'PROJ › File › New','name the project')+wire('M410 60 L 470 60',true)+node(470,30,180,60,'New project','settings kept · clips cleared','lit'));}
+// ---- Spectral FX1
+// Where the spectral modes sit: tracks' FX1 sends → FX1 mode → master, To Rev → FX2.
+function specChain(name,sub){let b=wire('M150 55 L 230 55',true)+wire('M410 55 L 490 55',true)+wire('M320 85 C 320 130 390 140 490 140',true,'dim');
+ b+=node(10,25,140,60,'Tracks','FX1 send')+node(230,20,180,70,'FX1 · '+name,sub,'lit')+node(490,25,150,60,'Master','')+node(490,115,150,50,'FX2 reverb','')+`<g class="gnote"><text x="400" y="128">To Rev</text></g>`;
+ return fsvg(660,175,'FX1 '+name+' in the send path',b);}
+// Stasis: snapshots per Time step (Snap / Chop) or one hand-held Freeze.
+function stasisPlot(){const x0=60,w=580,n=8,sw=w/n,yi=34,yh=104,hh=46,m=FS.sm;let b='';
+ for(let k=0;k<=n;k++)b+=`<line class="fgrid" x1="${x0+k*sw}" x2="${x0+k*sw}" y1="20" y2="160"/>`+(k<n?ftext(x0+k*sw+sw/2,16,'step '+(k+1),'fnote'):'');
+ b+=ftext(x0-8,yi+4,'send','fnote','end')+ftext(x0-8,yh+hh/2+4,'hold','fnote','end');
+ b+=fpath(fpoly(x=>.6*Math.sin(23*x)*Math.sin(3.1*x+1)+.25*Math.sin(57*x),x0,yi-18,w,36,320),'fref');
+ const trap=(a,z,f,cls)=>`<path class="${cls}" d="M${a} ${yh+hh} L ${a+f} ${yh} L ${z-f} ${yh} L ${z} ${yh+hh} Z"/>`,fw=sw*.18;
+ if(m===2){const p=x0+2.5*sw,r=x0+6*sw,lab=(a,z,t)=>ftext((a+z)/2,yh+hh/2+5,t,'fbandtext');
+  [[0,1,'S1'],[1,2,'S2']].forEach(([i,j,t])=>{b+=trap(x0+i*sw,x0+j*sw+fw,fw,'fband'+(i%2))+lab(x0+i*sw,x0+j*sw,t);});
+  b+=trap(x0+2*sw,p+fw,fw,'fband0')+trap(p,r+fw,fw,'fband1')+lab(p,r,'held while Freeze is on');
+  b+=`<line class="fxover" x1="${p}" x2="${p}" y1="22" y2="160"/><line class="fxover" x1="${r}" x2="${r}" y1="22" y2="160"/>`;
+  b+=ftext(p+4,yh-10,'Freeze on','fnote2','start')+ftext(r+4,yh-10,'off: Snap again','fnote2','start');
+  b+=trap(r,x0+7*sw+fw,fw,'fband0')+lab(r,x0+7*sw,'S7')+trap(x0+7*sw,x0+8*sw,fw,'fband1')+lab(x0+7*sw,x0+8*sw,'S8');}
+ else for(let k=0;k<n;k++){if(m===1&&k%2)continue;const a=x0+k*sw,z=x0+(k+1)*sw+(m===0&&k<n-1?fw:0);
+  b+=trap(a,Math.min(z,x0+w),fw,'fband'+(k%2))+ftext(a+sw/2,yh+hh/2+5,'S'+(k+1),'fbandtext');
+  if(k)b+=`<path class="fcurve2" d="M${a-sw*.35} ${yi+20} L ${a} ${yh-4}"/>`;}
+ b+=ftext(x0+w,180,m===0?'SNAP: each step holds the sound from just before it':m===1?'CHOP: the hold sounds on every other step and fades out in between':'Freeze holds by hand, whatever Time is set to','fnote','end');
+ return fsvg(660,190,'Stasis snapshots over the Time steps',b);}
+// Flux: each part of the spectrum moves towards the new sound over the Blur time.
+function fluxPlot(){const x0=70,w=560,t1=.3,tau=[.04,.22,0][FS.fb],full=FS.fb===2,lanes=[['B4',1,0],['G4',1,0],['E4',0,1],['C4',0,1]];let b='';
+ b+=ftext(x0+w*t1,16,'the input changes chord: C E → G B','fnote2')+`<line class="fxover" x1="${x0+w*t1}" x2="${x0+w*t1}" y1="22" y2="164"/>`;
+ lanes.forEach(([l,after,before],i)=>{const y=30+i*34;b+=ftext(x0-10,y+14,l,'fnote','end');
+  b+=`<rect class="fbox" x="${x0}" y="${y}" width="${w}" height="26" rx="4"/>`;
+  b+=`<rect style="fill:var(--mute)" x="${x0+(before?0:w*t1)}" y="${y+22}" width="${before?w*t1:w*(1-t1)}" height="3"/>`;
+  for(let k=0;k<70;k++){const t=k/70,a0=before,a1=after;let v=t<t1?a0:full?a0:a1+(a0-a1)*Math.exp(-(t-t1)/tau);if(t<.04)v*=t/.04;
+   if(v>.03)b+=`<rect class="fpulse" x="${(x0+w*t).toFixed(1)}" y="${y+3}" width="${(w/70+.6).toFixed(1)}" height="18" opacity="${v.toFixed(2)}"/>`;}});
+ b+=ftext(x0+w,184,full?'Blur at full: the wash holds and ignores the new input':'violet: the wash · grey line: what you send · '+['short Blur: quick change','long Blur: notes melt into each other'][FS.fb],'fnote','end')+ftext(x0,184,'time →','fnote','start');
+ return fsvg(660,194,'Flux smearing a chord change',b);}
+// Spiral: every repeat moves by the same number of Hz again.
+function spiralPlot(){const sh=[77,300,-77][FS.sh],spr=FS.sp===1,f0=220,R=8,fb=.8,top=Math.max(1000,f0+R*Math.abs(sh)+100),x0=40,w=580,y0=20,h=120;
+ const X=hz=>x0+w*hz/top;let b=`<rect class="fbox" x="${x0}" y="${y0}" width="${w}" height="${h}"/>`;
+ for(let k=0;k<=4;k++){const hz=Math.round(top*k/4/50)*50;b+=ftext(X(hz),y0+h+18,hz>=1000?(hz/1000)+'k':hz,'fnote');}
+ b+=ftext(x0+w,y0+h+34,'Hz','fnote','end');
+ const bar=(hz,a,cls,lab)=>{if(hz<=0||hz>top)return '';const x=X(hz).toFixed(1),yt=(y0+h-h*.85*a).toFixed(1);return `<line class="${cls}" x1="${x}" x2="${x}" y1="${y0+h}" y2="${yt}"/>`+(lab?ftext(x,yt-5,lab,'fnote'):'');};
+ b+=bar(f0,1,'fref2','in');
+ for(let r=1;r<=R;r++){const a=fb**r;b+=bar(f0+r*sh,a,'fbar',r<=4?r:'');if(spr)b+=bar(f0-r*sh,a,'fbar2',r<=4?r:'');}
+ b+=ftext(x0+w-6,y0+16,spr?'grey: input · violet: left repeats · amber: right repeats, the other way':'grey: input · numbers: repeat 1, 2, 3 …','fnote','end');
+ b+=ftext(x0+w-6,y0+32,sh<0||spr?'falling repeats reach 0 Hz and fade out sooner':'each repeat '+(sh>0?'+':'')+sh+' Hz higher: no longer harmonic','fnote','end');
+ return fsvg(660,175,'Spiral repeats moving by the Shift',b);}
+const SPEC=[
+ ['Stasis','a spectral freeze. It takes a snapshot on every Time step, and Freeze holds one for as long as it’s on. Each snapshot is the sound from just before, held as a smooth, endless sustain with no loop buzz.',
+  [['Freeze','Captures and holds by hand, whatever Time is set to'],['Time','1/64 to 1 bar (1/8 to start), synced to the transport or the project tempo'],['Mode','SNAP: a new snapshot every step · CHOP: sounds on every other step, fading out in between'],['Fade','How fast the hold swells in and dies away, 10 ms to 4 s'],['Wandr','First half: the pitch wanders, up to about ±50 cents · top half: the partials scatter into a grainy cloud'],['Tone','Darker left, brighter right, flat in the middle; changes the colour, not the loudness'],['Level','About the input level in the middle, up to +6 dB; a soft limit keeps peaks under 0 dBFS'],['To Rev','Send to the FX2 reverb']],
+  '','spectral freeze'],
+ ['Flux','a spectral blur. It smears the send into a moving wash, like a spectral reverb: each part of the spectrum glides towards the new sound over the Blur time.',
+  [['Blur','How long the smear is, 20 ms to 10 s; at full the wash holds forever'],['Wandr','As on Stasis'],['Tone','As on Stasis'],['Level','As on Stasis; starts a little under the middle'],['To Rev','Send to the FX2 reverb']],
+  '','spectral blur'],
+ ['Spiral','a frequency-shift delay. Every repeat is shifted by the same number of Hz again, so the echoes climb or fall in an endless barber-pole spiral, turning metallic and bell-like.',
+  [['Time / FEEDB','As on Delay: more feedback, more turns of the spiral'],['Shift','About 0.1 Hz to 2.5 kHz per repeat: right of centre rises, left falls, centre is plain repeats; starts at about +77 Hz'],['SPRD','Stereo spread: left repeats rise, right ones fall'],['Drift','Wow and flutter, as on Warp'],['FILT / CUTOF / WIDTH','The stock filter, inside the loop'],['To Rev · BEAT','FX2 reverb send · tempo sync']],
+  '','frequency-shift delay']];
 const FEATURES=[
  ['inserts','Track inserts',()=>{const g=INS[FS.grp],t=g[1][Math.min(FS.type,g[1].length-1)];
   return `<p>Every track has an insert effect after its EQ and gate. On TRACK, ${kbd('A')} cycles the native controls, then the insert’s. ${kbd('INSRT')} switches it on (off on a new track); the group button beside it picks the group and the type knob steps through it. Changes fade through dry.</p>${fchain(3)}
   ${fseg('grp',INS.map(x=>x[0]),FS.grp)}${fseg('type',g[1].map(x=>x[0]),Math.min(FS.type,g[1].length-1))}${t[0]==='CHRD'?fseg('chord',CHORDS,FS.chord):''}
   <p class="gdesc"><b>${t[0]}</b>: ${t[1]}. Knobs: ${g[2]}.</p>${insPlot(t[0])}
   <p class="muted">Saved per track and captured by scenes; every knob except the type can be MIDI-learned. Resonator tails ring out, then the insert stops using CPU until sound returns.</p>`;}],
+ ['spectral','Spectral FX1',()=>{const S=SPEC[FS.spec];
+  return `<p>FX1 has a second page of send effects. Open FX1, press ${kbd('B')} for the mode list, then ${kbd('A')} to switch from <b>FX1 / Delay</b> to <b>FX1 / Spectral</b>. The list opens on the page of the current mode.</p>
+  ${fseg('spec',SPEC.map(x=>x[0]),FS.spec)}<p class="gdesc"><b>${S[0]}</b>: ${S[1]}</p>${specChain(S[0],S[4])}
+  ${FS.spec===0?fseg('sm',['SNAP','CHOP','Freeze'],FS.sm)+stasisPlot():FS.spec===1?fseg('fb',['Short Blur','Long Blur','Full Blur'],FS.fb)+fluxPlot():fseg('sh',['Shift +77 Hz','+300 Hz','−77 Hz'],FS.sh)+fseg('sp',['SPRD off','SPRD on'],FS.sp)+spiralPlot()}
+  <p class="gsub">Controls</p>${FT(S[2])}${S[3]?`<p class="muted">${S[3]}</p>`:''}`;}],
  ['synth','Synth tracks',()=>`<p>Any track can play a built-in mono synth from MIDI. On TRACK press ${kbd('TRACK')} to cycle Normal → Sidechain → <b>Synth</b>, then tap ${kbd('SYN ON')}. It needs no input, plays on its <b>MIDI Ch</b> with velocity and last-note priority, and everything after it (gate, inserts, DJ EQ, mixer) works as on any track.</p>
   ${fseg('eng',ENG.map(e=>e[0]),FS.eng)}<p class="gdesc">${ENG[FS.eng][1]}${FS.eng===0?' (Mutable Instruments Plaits by Émilie Gillet, MIT licence)':''}.</p>
   <p class="gsub">Modulation: pick a source, then where it goes (B menu: LFO Dest, LFO2 Dest, Env Dest)</p>${fseg('src',SRC,FS.src)}${fseg('dest',DEST,FS.dest[FS.src])}

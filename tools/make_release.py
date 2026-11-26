@@ -342,7 +342,7 @@ send_sites=bl_sites(0x08108784,0x08100000,0x0814a000)
 if len(send_sites)<50:raise ValueError('expected the interface value-send call sites')
 for at in send_sites:
  add('synth input stand-in send '+hex(at),at,branch(at,0x08108784),branch(at,symbols(4)['synth_send']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.2',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.3',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['synth7']=ss
 manifest['symbols']['pcm4']=PC
@@ -496,5 +496,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt 1.3.0-dev.2. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt 1.3.0-dev.3. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code') or p['name']=='M7 Plaits synth engine'))

@@ -23,7 +23,7 @@ s=heap_machine(stock,0x80413d4,0xc0400000);call(s,0x805342c,0)
 stock_defs=bytes(s.mem_read(u32(s,DEFS),0x3934))
 check(call(u,G['learn_defs_build'],0) is not None and u32(u,DEFS)!=0,'learn_defs_build runs the stock build')
 defs=bytes(u.mem_read(u32(u,DEFS),0x3934))
-OURS=[0x43,0x3a,0x3d,0x4a,0x4b,*range(0x1a0,0x1ba)]
+OURS=[0x43,0x3a,0x3d,0x4a,0x4b,*range(0x1a0,0x1ba),*range(0x19c,0x1a0),0x1e6,0x1e7,0x1eb,0x1ec,0x1ed,0x1ee,0x1ef,0x1df,0x1e0] # Freeze 0x19c-0x19f, 0x1e6; G30 Spiral 0x1df, 0x1e0
 SYNTH_INSERT=[*range(0x1ba,0x1d6),*range(0x1d7,0x1df)] # checked in test_s9b_midi_map.py
 check(all(struct.unpack_from('<H',stock_defs,i*28)[0]==0 for i in OURS),'the stock M7 table has none of these ids (why their CCs gave 0)')
 check(all(defs[i*28:i*28+28]==stock_defs[i*28:i*28+28] for i in range(0x20b) if i not in OURS+[0x155]+SYNTH_INSERT),'every other stock M7 definition is unchanged')

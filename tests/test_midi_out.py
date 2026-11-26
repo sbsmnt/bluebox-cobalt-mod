@@ -99,13 +99,13 @@ def detach():w32(u,CLASS_DATA,0)
 
 # values and ranges
 lvl_lo,lvl_hi=defrange(0x4);mode_lo,mode_hi=defrange(0x1a0);mute_lo,mute_hi=defrange(0x160)
-check((mode_lo,mode_hi)==(0,5) and (mute_lo,mute_hi)==(0,1) and lvl_hi>lvl_lo,'definition ranges: FX1 mode enum 0..5, mute 0..1, level %d..%d'%(lvl_lo,lvl_hi))
+check((mode_lo,mode_hi)==(0,8) and (mute_lo,mute_hi)==(0,1) and lvl_hi>lvl_lo,'definition ranges: FX1 mode enum 0..8 (6 Stasis, 7 Flux, 8 Spiral), mute 0..1, level %d..%d'%(lvl_lo,lvl_hi))
 tset(0,0x4,lvl_lo+(lvl_hi-lvl_lo)//2);tset(0x0c,0x160,1);tset(0x14,0x1a0,2);tset(3,0x4,lvl_hi)
 want_lvl=round((lvl_hi-lvl_lo)//2*127/(lvl_hi-lvl_lo))
 MAPPED=[(14,0xb0,1,0x4,0),(14,0xb0,2,0x160,0x0c),(14,0xb0,3,0x1a0,0x14),(4,0xb0,8,0x4,3),
         (14,0x90,36,0x4,0),(14,0xb0,9,0x4,0x13)]  # note item and unknown cell are skipped
 setmap(MAPPED)
-GEN=[(0xb,0xbe,1,want_lvl),(0xb,0xbe,2,127),(0xb,0xbe,3,round(2*127/5)),(0xb,0xb4,8,127)]
+GEN=[(0xb,0xbe,1,want_lvl),(0xb,0xbe,2,127),(0xb,0xbe,3,round(2*127/mode_hi)),(0xb,0xb4,8,127)]  # FX1 mode 2 of 0..mode_hi
 
 run(40)
 check(sent==[] and u32(u,RING_W)==u32(u,RING_R),'no device: nothing queued')

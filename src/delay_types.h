@@ -49,7 +49,7 @@ static inline void x_reset(struct delay_types *x,void *owner) {
 }
 static inline void x_event(struct delay_types *x,unsigned id,int value) {
     switch(id) {
-    case G_MODE:x->mode=value>=0&&value<=5?value:0;break;
+    case G_MODE:x->mode=value>=0&&value<=8?value:0;break; /* 6: Freeze, 7: Blur, 8: Spiral */
     case T_DRIVE:x->drive=g_clampi(value,0,1000);break;
     case T_DUCK:x->duck=g_clampi(value,0,1000);break;
     case T_RELEASE:x->release=g_clampi(value,20,2000);break;

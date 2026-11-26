@@ -26,7 +26,7 @@ stock_defs=bytes(s.mem_read(u32(s,DEFS),0x3934))
 check(call(u,G['learn_defs_build'],0) is not None and u32(u,DEFS)!=0,'learn_defs_build runs the stock build')
 defs=bytes(u.mem_read(u32(u,DEFS),0x3934))
 OURS=[0x1ae,*range(0x1ba,0x1d6),*range(0x1d7,0x1df)] # S10: LFO2; S18: Reso; F6: Chord
-COBALT=[0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba)] # Cobalt FX ids, checked in test_midi_map.py
+COBALT=[0x43,0x3a,0x3d,0x4a,0x4b,0x155,*range(0x1a0,0x1ba),*range(0x19c,0x1a0),0x1e6,0x1e7,0x1eb,0x1ec,0x1ed,0x1ee,0x1ef,0x1df,0x1e0] # Cobalt FX ids (incl. Freeze), checked in test_midi_map.py
 check(all(defs[i*28:i*28+28]==stock_defs[i*28:i*28+28] for i in range(0x20b) if i not in OURS+COBALT),'every stock M7 definition is unchanged')
 check(all(struct.unpack_from('<H',stock_defs,i*28)[0]==0 for i in OURS),'the stock M7 table has no Gate / insert / synth entries (why CCs gave 0)')
 def m7_range(i):

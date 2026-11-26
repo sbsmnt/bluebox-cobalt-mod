@@ -20,7 +20,7 @@ def w32(u,a,v):u.mem_write(a,struct.pack('<I',v&0xffffffff))
 def f32(u,a):return struct.unpack('<f',u.mem_read(a,4))[0]
 def machine(image=patched,double=False,cpu_model=UC_CPU_ARM_CORTEX_M7):
  u=Uc(UC_ARCH_ARM,UC_MODE_THUMB if double else UC_MODE_THUMB|UC_MODE_MCLASS);u.ctl_set_cpu_model(UC_CPU_ARM_MAX if double else cpu_model)
- for a,n in [(0x08000000,0x200000),(0x20000000,0x20000),(0x24000000,0x80000),(0x30000000,0x48000),(0x38000000,0x10000),(0x38800000,0x1000),(0x40024000,0x1000),(0x58024000,0x1000),(0xe000e000,0x1000),(0xc0000000,0x2000000)]:u.mem_map(a,n)
+ for a,n in [(0x08000000,0x200000),(0x20000000,0x20000),(0x24000000,0x80000),(0x30000000,0x48000),(0x38000000,0x10000),(0x38800000,0x1000),(0x40024000,0x1000),(0x58024000,0x1000),(0xe000e000,0x1000),(0xe0001000,0x1000),(0xc0000000,0x2000000)]:u.mem_map(a,n)
  if double:u.reg_write(UC_ARM_REG_FPEXC,0x40000000)
  u.mem_write(0x8040000,image);u.reg_write(UC_ARM_REG_C1_C0_2,0xf00000);return u
 def call(u,a,*args,end=RET,count=3000000):

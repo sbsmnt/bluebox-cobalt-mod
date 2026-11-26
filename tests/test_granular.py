@@ -16,7 +16,9 @@ for remaining,expected in [(768000,True),(767999,False),(0,False)]:
  check(ret==42 and u32(u,GS)==0x47524e36 and u32(u,GS+8)==(0xc0010000 if expected else 0),'real arena preflight allocation with remaining bytes '+str(remaining))
  used=768000 if expected else 0
  sg_expected=remaining-used>=205056
- check(u32(u,0x24000004)==0xc0010000+used+(205056 if sg_expected else 0),'arena cursor accounts only for preflighted granular and Shoegaze buffers '+str(remaining))
+ sg=205056 if sg_expected else 0
+ frz=140480 if remaining-used-sg>=140480 else 0 # the FX1 Freeze state + G30 Spiral's 864 B (small blocks like the shifter bank come from DTCM)
+ check(u32(u,0x24000004)==0xc0010000+used+sg+frz,'arena cursor accounts only for preflighted granular, Shoegaze and Freeze buffers '+str(remaining))
  check(bool(u32(u,0x38800104))==sg_expected,'independent Shoegaze allocation follows its own preflight '+str(remaining))
  check(u32(u,GS+GVALID)==0 and u32(u,GS+12)==0,'constructor resets grain history and starts in Normal '+str(remaining))
 # Invalid or exhausted arena values cannot reach the assert-on-failure allocator.

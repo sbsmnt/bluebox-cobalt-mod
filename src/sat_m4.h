@@ -19,9 +19,9 @@ void sat_defs(void *table,unsigned id,unsigned type,const char *label,int min,in
     STOCK_DEF(table,0x3d,8,"To Rev:",0,1000,"dlysend");
     STOCK_DEF(table,0x4a,1,"Pitch:",-12,12,"dlypitch");
     STOCK_DEF(table,0x4b,4,"Pitch:",0,1,"dlypitchon");
-    static const char *const modes[]={"Warp delay","Granular","Tape","Ducked","Reverse","Delay"};
+    static const char *const modes[]={"Warp delay","Granular","Tape","Ducked","Reverse","Delay","Stasis","Flux","Spiral"};   /* G29: Blur is shown as Flux; G30: Spiral */
     ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
-        (table,G_MODE,"Mode:",modes,6,"dlymode");
+        (table,G_MODE,"Mode:",modes,FX1_MODES,"dlymode");
     STOCK_DEF(table,G_POS,8,"Position:",0,1000,"grnposition");
     STOCK_DEF(table,G_SIZE,1,"Size ms:",20,250,"grnsize");
     STOCK_DEF(table,G_DENSITY,1,"Density:",1,4,"grndensity");
@@ -36,6 +36,26 @@ void sat_defs(void *table,unsigned id,unsigned type,const char *label,int min,in
     STOCK_DEF(table,T_HICUT,1,"Hi C:",500,16000,"tapehicut");
     STOCK_DEF(table,T_LOCUT,1,"Lo C:",20,2000,"tapelocut");
     STOCK_DEF(table,T_WILD,4,"Wild:",0,1,"tapewild");
+    /* FX1 mode 6, Freeze (spectral freeze) */
+    STOCK_DEF(table,F_FREEZE,4,"Freeze:",0,1,"frzon");
+    STOCK_DEF(table,F_FADE,8,"Fade:",0,1000,"frzfade");
+    STOCK_DEF(table,F_DRIFT,8,"Wandr:",0,1000,"frzdrift");   /* G28: WANDR (the delays' Drift is different) */
+    STOCK_DEF(table,F_TONE,8,"Tone:",0,1000,"frztone");
+    STOCK_DEF(table,F_LEVEL,8,"Level:",0,1000,"frzlevel");
+    static const char *const frz_times[F_TIME_ITEMS]={"1/64","1/32","1/16","1/8","1/4","1/2","1 bar"};
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,F_TIME,"Time:",frz_times,F_TIME_ITEMS,"frztime");
+    static const char *const frz_tmodes[2]={"SNAP","CHOP"};   /* G28: were STEP / GATE */
+    ((void (*)(void *,unsigned,const char *,const char *const *,unsigned,const char *))0x08134c39u)
+        (table,F_TMODE,"Mode:",frz_tmodes,2,"frzmode");
+    /* FX1 mode 7, Blur */
+    STOCK_DEF(table,B_BLUR,8,"Blur:",0,1000,"blurtime");
+    STOCK_DEF(table,B_DRIFT,8,"Wandr:",0,1000,"blurdrift");
+    STOCK_DEF(table,B_TONE,8,"Tone:",0,1000,"blurtone");
+    STOCK_DEF(table,B_LEVEL,8,"Level:",0,1000,"blurlevel");
+    /* FX1 mode 8, Spiral */
+    STOCK_DEF(table,S_SHIFT,8,"Shift:",0,1000,"spishift");
+    STOCK_DEF(table,S_SPREAD,4,"Sprd:",0,1,"spispread");
     STOCK_DEF(table,0x1ae,7,"Gate:",-96000,-12000,"ngthreshold");
     /* Ordinal 0 is a fresh track's CLIP before INSRT is switched on (was Off);
      * ordinal 2 was SIN, loaded as CLIP. 5..8 are filters, 9..14 the SPEC
@@ -142,7 +162,11 @@ void dly_defaults(void *set) {
         {0x33,400},{0x39,400},{0xe,120},{0xcb,1000},{0x4a,0},{0x3a,0},{0x3d,0},
         {0xca,1},{0x35,1},{0x36,1},{0x4b,0},{0x37,0},{0x34,6},
         {G_MODE,5},{G_POS,250},{G_SIZE,80},{G_DENSITY,4},{G_JITTER,0},{G_FREEZE,0},{G_REVERSE,0},
-        {T_DRIVE,350},{T_DUCK,700},{T_RELEASE,300},{T_SEGMENT,400},{T_TONE,650},{T_HICUT,6000},{T_WILD,0},{T_LOCUT,20}
+        {T_DRIVE,350},{T_DUCK,700},{T_RELEASE,300},{T_SEGMENT,400},{T_TONE,650},{T_HICUT,6000},{T_WILD,0},{T_LOCUT,20},
+        {F_FREEZE,0},{F_FADE,300},{F_DRIFT,150},{F_TONE,750},{F_LEVEL,500},{F_TIME,3},{F_TMODE,0},   /* G26: Time 1/8 */
+       
+        {B_BLUR,500},{B_DRIFT,0},{B_TONE,750},{B_LEVEL,475},   /* G34: Flux Level -5% */
+        {S_SHIFT,832},{S_SPREAD,0}   /* G33: Spiral, about +77 Hz a repeat (was 700, +5 Hz) */
     };
     for(unsigned i=0;i<sizeof(defaults)/sizeof(defaults[0]);i++)
         STOCK_ADD(set,defaults[i].id,defaults[i].value);
