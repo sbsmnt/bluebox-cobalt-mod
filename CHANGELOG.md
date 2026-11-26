@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **XY pad for the spectral sends:** on the XY screen, the FX1 pad is
+  labelled SPECTRAL in Stasis, Flux and Spiral, and moves the mode's own
+  controls: Stasis Tone (X) / Wandr (Y), Flux
+  Blur / Wandr, Spiral Shift / Cutoff. The other FX1 modes keep the stock
+  Cutoff / Width, and the REVERB pad is unchanged.
+
+- **Spiral level fix:** with Shift near the top and FEEDB close to full, the
+  repeats could jump in level and clip. The loop now has a soft limit (unity
+  to -3 dBFS, never over 0 dBFS) and a very small loss per repeat, so full
+  FEEDB fades slowly instead of building up.
+
+- **Boot screen:** the version in the bottom-right corner of the start-up
+  screen reads `1.5.2 Cobalt 1.3`, so you can see at power-on that Cobalt is
+  installed. TOOLS is unchanged.
+
+## 1.3.0-dev.3 (dev, 2026-11-26)
+
 - **Spectral FX1 sends:** FX1 → B → A opens a second page, Spectral, with
   three new FX1 modes. **Stasis** is a spectral freeze (Snap or Chop on every
   Time step from 1/64 to 1 bar, or a hand-held Freeze), with Fade, Wandr,

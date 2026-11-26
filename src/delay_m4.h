@@ -574,3 +574,38 @@ void dly_tools_version(void *label,const char *stock) {
     ((void (*)(void *,const char *))0x0813820du)((uint8_t *)label+0xa0,"Cblt 1.3d");
 }
 
+
+/* XY DELAY pad. The native pad moves FX1's X Param / Y Param, which the
+ * native value lookup answers with Cutoff (0x0e) and Width (0xcb) for FX1.
+ * Two stubs in that lookup (make_release.py) ask here instead, so in the
+ * spectral modes the pad moves the mode's own controls: Stasis Tone / Wandr,
+ * Flux Blur / Wandr, Spiral Shift / Cutoff. Every other mode keeps stock.
+ * Returns 1 (value found), as the native lookup does. */
+static uint16_t xy_fx1_target(void *app,unsigned y) {
+    int mode=fx_mode(app);
+    if(mode==FX1_FREEZE_MODE)return y?F_DRIFT:F_TONE;
+    if(mode==FX1_BLUR_MODE)return y?B_DRIFT:B_BLUR;
+    if(mode==FX1_SPIRAL_MODE)return y?0x0e:S_SHIFT;
+    return y?0xcb:0x0e;
+}
+unsigned xy_fx1_x(void *app,int *out){*out=xy_fx1_target(app,0);return 1;}
+unsigned xy_fx1_y(void *app,int *out){*out=xy_fx1_target(app,1);return 1;}
+
+/* XY page pad refresh (native 0x8133b48: page, FX layer, pad 0..2). It runs
+ * on page show, project load and every change on that FX layer. After it,
+ * the FX1 pad's label (page+0xbefc, set once to "DELAY" by the page's
+ * constructor) reads SPECTRAL in Stasis, Flux and Spiral. The native label
+ * setter returns early when the text is unchanged. */
+void xy_pad_refresh(void *page,const uint16_t *layer,unsigned pad) {
+    ((void (*)(void *,const uint16_t *,unsigned))0x08133b49u)(page,layer,pad);
+    if(pad)return;
+    const char *text=FX1_SPEC_PAGE(fx_mode((void *)0x300173d0u))?"SPECTRAL":(const char *)0x08146c70u;
+    ((void (*)(void *,const char *))0x0813fe4bu)((uint8_t *)page+0xbefc,text);
+}
+
+/* Boot screen: the native start-up page (constructor 0x08141990) shows the
+ * firmware version in a right-aligned label at the bottom right. Its text
+ * pointer now points here, and the label is widened leftwards (x 200 -> 160,
+ * width 120 -> 160, still ending at the right edge) so this fits. The shared
+ * "1.5.2" string itself is untouched (TOOLS and others still use it). */
+__attribute__((used)) const char cobalt_boot_version[]="1.5.2 Cobalt 1.3";

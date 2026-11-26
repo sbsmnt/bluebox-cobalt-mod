@@ -1,6 +1,6 @@
 # Cobalt for 1010music bluebox desktop
 
-**v1.3.0-dev.3 - development build for bluebox desktop firmware 1.5.2**
+**v1.3.0-dev.4 - development build for bluebox desktop firmware 1.5.2**
 
 > This is the `dev` branch: the next version while it is being tested on
 > hardware. The current release is
@@ -38,7 +38,8 @@ here.
   **Stasis** (a spectral freeze: snapshots on every Time step, or held by
   hand with Freeze), **Flux** (a spectral blur that smears the send into a
   moving wash) and **Spiral** (a frequency-shift delay whose repeats climb
-  or fall in a barber-pole spiral).
+  or fall in a barber-pole spiral). On the XY screen the FX1 pad reads
+  SPECTRAL and moves each mode's own controls.
 - **Scenes** now also hold each track's insert and DJ EQ settings.
 - **MIDI Learn** works on all of Cobalt's controls: the FX1 delay modes,
   Gazer, master saturation, the Gate threshold, the synth, the inserts and
@@ -233,6 +234,8 @@ FX1 → B → Spectral → **Stasis**: a spectral freeze. It takes a snapshot on
 
 **Encoders:** Fade / Time, Wandr / Tone, Level, Mode / To Rev, top / bottom from the left; the Freeze toggle on the left.
 
+**XY pad:** on the XY screen, the FX1 pad (labelled **SPECTRAL** in the spectral modes, DELAY otherwise) moves **Tone** (X, dark to bright) and **Wandr** (Y, still to scattered).
+
 **How it sounds:**
 - Held tones keep their exact pitch.
 - A chord holds as steadily as it played.
@@ -256,6 +259,8 @@ FX1 → B → Spectral → **Flux**: a spectral blur, the moving counterpart to 
 
 **Encoders:** Blur / Wandr, Tone / Level, To Rev, top / bottom from the left.
 
+**XY pad:** the SPECTRAL pad moves **Blur** (X, short to a held wash at the right edge) and **Wandr** (Y).
+
 **CPU:** Flux analyses and resynthesises all the time, so it costs more than a Stasis hold: about 15.5k emulator instructions per block, peaking at 19k (18k / 22k with Wandr up). With nothing sent and the tail gone, it costs almost nothing.
 
 #### Spiral
@@ -273,6 +278,10 @@ FX1 → B → Spectral → **Spiral**: a frequency-shift delay. Every repeat is 
 | BEAT | Syncs Time to the project tempo, as on Delay |
 
 Spiral has no PING or QUAD: it runs without them, and your PING / QUAD settings come back in the other modes.
+
+**Level:** a soft limit inside the loop keeps the repeats under 0 dBFS, even with Shift at the top and FEEDB at full. At full FEEDB the spiral fades very slowly rather than holding forever.
+
+**XY pad:** the SPECTRAL pad moves **Shift** (X: the centre is no shift, left falls, right rises) and the filter **Cutoff** (Y, heard with FILT on). In the other FX1 modes the pad stays stock: DELAY, moving Cutoff and Width.
 
 **CPU:** about 5k emulator instructions per block more than plain Delay; like Stasis and Flux it skips the Granular history the other delay types keep filling.
 

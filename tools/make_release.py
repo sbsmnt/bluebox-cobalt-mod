@@ -33,6 +33,20 @@ for core,address in [(7,0x080b0000),(4,0x080b8000)]:
     if len(code)>0x8000:raise ValueError('code cave too large')
     add(f'M{core} additional code',address,bytes(len(code)),code)
 add('audio profiler exit call',0x0804c50e,branch(0x0804c50e,0x0804bbf8),branch(0x0804c50e,symbols(7)['cpu_prof_end']))
+# XY DELAY pad: the native value lookup's FX1 X Param / Y Param answers
+# (movs r3,#0x0e / #0xcb; str r3,[r4]; movs r0,#1; b exit) become
+# mov r1,r4; bl xy_fx1_x / xy_fx1_y; b exit: the spectral modes get their own targets.
+for at,name,imm,exit_b in [(0x08121c42,'xy_fx1_x','0e23','a6e7'),(0x08121c4a,'xy_fx1_y','cb23','a2e7')]:
+    add('XY DELAY pad '+name[-1].upper()+' target per FX1 mode',at,bytes.fromhex(imm+'23600120'+exit_b),
+        bytes.fromhex('2146')+branch(at+2,symbols(4)[name])+bytes.fromhex(exit_b))
+# XY page: the only call of the pad refresh goes through xy_pad_refresh,
+# which also names the FX1 pad SPECTRAL in the spectral modes.
+add('XY FX1 pad label follows the FX1 mode',0x08133c02,branch(0x08133c02,0x08133b48),branch(0x08133c02,symbols(4)['xy_pad_refresh']))
+# Boot screen version label: Cobalt's text, and a 160 px label (x 160) so it
+# fits; it still ends at the right edge. The shared 1.5.2 string is untouched.
+add('boot screen version text',0x08141ab4,struct.pack('<I',0x08146bd0),struct.pack('<I',symbols(4)['cobalt_boot_version']))
+add('boot screen version label x 200 to 160',0x08141a78,bytes.fromhex('c823'),bytes.fromhex('a023'))
+add('boot screen version label width 120 to 160',0x08141a82,bytes.fromhex('c4f8f8b1'),bytes.fromhex('c4f8f831'))
 add('clock label width 140 to 128 pixels',0x08139790,bytes.fromhex('8c23'),bytes.fromhex('8023'))
 gr_code=(ROOT/'build'/'gr7.bin').read_bytes()
 if len(gr_code)>0x8000:raise ValueError('compressor code cave too large')
@@ -342,7 +356,7 @@ send_sites=bl_sites(0x08108784,0x08100000,0x0814a000)
 if len(send_sites)<50:raise ValueError('expected the interface value-send call sites')
 for at in send_sites:
  add('synth input stand-in send '+hex(at),at,branch(at,0x08108784),branch(at,symbols(4)['synth_send']))
-manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.3',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
+manifest=dict(name='Cobalt for 1010music bluebox desktop',version='1.3.0-dev.4',firmware='desktop 1.5.2',size=len(stock),stock_sha256=STOCK_HASH,patched_sha256=hashlib.sha256(patched).hexdigest(),patches=patches,symbols={str(c):symbols(c) for c in [7,4]})
 manifest['symbols']['gate7']=ngs
 manifest['symbols']['synth7']=ss
 manifest['symbols']['pcm4']=PC
@@ -496,5 +510,5 @@ field_html='<div class="swatches">'+''.join(row(f) for f in fields)+'</div>'
 (ROOT/'docs').mkdir(exist_ok=True)
 (ROOT/'docs'/'index.html').write_text((ROOT/'patch_bluebox.html').read_text())
 (ROOT/'docs'/'.nojekyll').write_text('')
-print('Built Cobalt 1.3.0-dev.3. Expected output SHA256:',manifest['patched_sha256'])
+print('Built Cobalt 1.3.0-dev.4. Expected output SHA256:',manifest['patched_sha256'])
 print('Added code bytes:',sum(len(base64.b64decode(p['new'])) for p in patches if p['name'].endswith('code') or p['name']=='M7 Plaits synth engine'))

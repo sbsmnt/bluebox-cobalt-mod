@@ -39,6 +39,22 @@ check(max(abs(v) for v in l[98*32:128*32])>.05 and max(abs(v) for v in l[185*32:
 # Long feedback stays bounded.
 l,r=echoes(845,fb=1000,blocks=1200)
 check(max(abs(v) for v in l)<1.5 and all(v==v for v in l),'Spiral at full FEEDB stays finite and bounded')
+# Loop limit (dev.4): Shift at max with FEEDB near or at full. The allpass
+# pair smears attacks into higher peaks on every pass and a top Shift used to
+# lose less than a plain repeat, so peaks clipped and full FEEDB crept up.
+import random
+def burst(knob,fb,amp,blocks=1500):
+ random.seed(3);u,_,_=dsetup()
+ dblock(u,ZERO,evs=INITIAL+[(0x39,fb),(GMODE,8),(S_SHIFT,knob)]);steady(u)
+ l=[]
+ for b in range(1,blocks):
+  out,_=dblock(u,[random.uniform(-amp,amp) for _ in range(32)] if b<46 else ZERO);l+=struct.unpack('<64f',out)[:32]
+ T=90*32;return l,[math.sqrt(sum(v*v for v in l[k*T:(k+1)*T])/T) for k in range(1,len(l)//T)]
+for fb in (980,1000):
+ l,rms=burst(1000,fb,.9)
+ print('INFO Shift max, FEEDB %d, noise at -1 dBFS: peak %.2f, repeat 1 %.1f dB, repeat %d %.1f dB'%(fb,max(abs(v) for v in l),20*math.log10(rms[0]),len(rms),20*math.log10(rms[-1])))
+ check(max(abs(v) for v in l)<1.,'Spiral, Shift max, FEEDB %d: the repeats never reach full scale (peak %.2f)'%(fb,max(abs(v) for v in l)))
+ check(rms[-1]<rms[0],'Spiral, Shift max, FEEDB %d: the repeats fade instead of building up'%fb)
 # G31: Spiral has no PING / QUAD. Set before or during Spiral, they are held
 # off (the same repeats as without them); leaving Spiral puts the saved
 # settings back.

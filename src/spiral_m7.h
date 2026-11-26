@@ -53,6 +53,21 @@ static inline void spi_prepare(struct spiral_state *p,int on,int knob,unsigned n
     for(unsigned i=0;i<n;i++){p->cv[i]=c;p->sv[i]=sn;float nc=c*rc-sn*rs;sn=c*rs+sn*rc;c=nc;}
     p->c=c;p->s=sn;p->n=n;
 }
+/* Spiral's loop limit. Each repeat goes through the shifter's allpass pair
+ * again, so attacks and burst edges smear into higher peaks at the same
+ * loudness (a 0.5 burst came back peaking at 0.8 to 1.2), and near full
+ * FEEDB a top Shift lost a little less than a plain repeat (the shifter is
+ * least exact near Nyquist), so full FEEDB crept up instead of holding.
+ * So the loop keeps a small loss per repeat (-0.09 dB) and a soft limit that
+ * is unity to -3 dBFS and never reaches 0 dBFS, as Stasis and Flux. */
+#define SPI_LOOP_TRIM .99f
+#define SPI_KNEE_T .70794578f
+static inline float spi_knee(float y) {
+    float a=y<0.f?-y:y;
+    if(a<=SPI_KNEE_T)return y;
+    float o=a-SPI_KNEE_T,v=SPI_KNEE_T+(1.f-SPI_KNEE_T)*o/((1.f-SPI_KNEE_T)+o);
+    return y<0.f?-v:v;
+}
 /* G32: Spiral's own shifter loop, built at -O2 (dsp_fast_m7.c): the SPEC
  * insert's Hilbert pair and DC blocker with wet 1 and no dry, feedback or
  * ramps, one chain at a time so each pass keeps its states in registers. */
@@ -87,9 +102,9 @@ static inline void spi_run(struct spiral_line *L,float *__restrict x,unsigned n,
         for(unsigned i=0;i<n;i+=2) {
             float yb;
             FSH_CHAIN(1,b0,b1,b2,b3,v[i],yb);
-            y=ya[i]*cv[i]+sign*yb*sv[i];x[i]=fsh_knee(y);
+            y=SPI_LOOP_TRIM*(ya[i]*cv[i]+sign*yb*sv[i]);x[i]=spi_knee(y);
             FSH_CHAIN(1,B0,B1,B2,B3,v[i+1],yb);
-            y=ya[i+1]*cv[i+1]+sign*yb*sv[i+1];x[i+1]=fsh_knee(y);
+            y=SPI_LOOP_TRIM*(ya[i+1]*cv[i+1]+sign*yb*sv[i+1]);x[i+1]=spi_knee(y);
         }
         e[0]=b0;e[1]=b1;e[2]=b2;e[3]=b3;o[0]=B0;o[1]=B1;o[2]=B2;o[3]=B3;
     }

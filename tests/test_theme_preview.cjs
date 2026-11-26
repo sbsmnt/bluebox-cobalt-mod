@@ -11,7 +11,7 @@ const ctx={document:{getElementById:id=>elements[id]},URL,Blob,atob};ctx.globalT
 let n=0;function check(c,msg){assert(c,msg);n++;console.log('PASS',msg);}
 function run(s){return vm.runInContext(s,ctx);}
 (async()=>{
-check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.3'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
+check(html.includes('bluebox desktop firmware 1.5.2 · v'+manifest.version)&&manifest.version==='1.3.0-dev.4'&&!html.includes('Tools shows')&&!html.includes('__MOD_VERSION__'),'page shows the firmware and Cobalt versions, without the TOOLS label');
 check(!html.includes("'35.2%'"),'preview header has no numeric CPU percentage (the diagnostic was removed)');
 const views=run('SCREEN_LIST.map(x=>x[0])'),show=v=>run('setView('+JSON.stringify(v)+')');
 check(views.length===27&&!views.includes('delay'),'27 photo-based screens, no invented FX1 Delay page');
